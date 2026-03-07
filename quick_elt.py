@@ -1,7 +1,7 @@
 # quick_elt.py
 import os, logging
 import pandas as pd, numpy as np
-from pipeline_engine import PipelineEngine
+from pipeline_engine import PipelineEngine, BASE_DIR
 
 log = logging.getLogger("quickELT")
 
@@ -150,7 +150,7 @@ def _result_handler(ctx, sid, result, lg):
 if __name__ == '__main__':
     PipelineEngine(
         OP_MAP, log=log, default_config="config.json",
-        init_ctx=lambda: {"df": None, "results": {}, "base_dir": ""},
+        init_ctx=lambda: {"df": None, "results": {}, "base_dir": BASE_DIR},
         eval_vars_fn=lambda ctx: {"row_count": len(ctx["df"]) if ctx["df"] is not None else 0},
         result_handler=_result_handler,
         done_fn=lambda ctx, lg: lg.info(f"执行完成 total_rows={len(ctx['df']) if ctx['df'] is not None else 0}")

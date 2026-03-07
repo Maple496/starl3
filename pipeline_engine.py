@@ -1,117 +1,61 @@
 import sys, re, json, os, logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='{"time":"%(asctime)s","level":"%(levelname)s","msg":"%(message)s"}',
-    stream=sys.stdout
-)
-
 BASE_DIR = os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__))
 
+logging.basicConfig(level=logging.INFO, format='{"time":"%(asctime)s","level":"%(levelname)s","msg":"%(message)s"}', stream=sys.stdout)
+L = logging.getLogger("engine")
+D = os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__))
 
 class PipelineEngine:
-    def __init__(self, op_map, *, default_config="config.json", init_ctx=None,
-                 eval_vars_fn=None, result_handler=None, done_fn=None, log=None):
-        self.op_map = op_map
-        self.default_config = default_config
-        self.init_ctx = init_ctx
-        self.eval_vars_fn = eval_vars_fn
-        self.result_handler = result_handler
-        self.done_fn = done_fn
-        self.log = log or logging.getLogger("engine")
+    def __init__(s, m, **k):
+        s.m, s.c, s.i, s.e, s.r, s.d, s.l = m, k.get('default_config', "config.json"), k.get('init_ctx'), k.get('eval_vars_fn'), k.get('result_handler'), k.get('done_fn'), k.get('log') or L
 
-    def load_config(self, file_path):
-        with open(file_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-        config.pop("idx", None)
-        return config
+    def load_config(s, p):
+        c = json.load(open(p, encoding='utf-8'))
+        c.pop("idx", None)
+        return c
 
-    def parse_pipeline(self, config):
-        cols = config["cols"]
-        steps = []
-        for row in config["rows"]:
-            step = dict(zip(cols, row))
-            pj = step.get("params_json", "")
-            if isinstance(pj, str):
-                try:
-                    step["params_json"] = json.loads(pj)
-                except (json.JSONDecodeError, TypeError):
-                    step["params_json"] = {}
-            elif not isinstance(pj, dict):
-                step["params_json"] = {}
-            steps.append(step)
-        steps.sort(key=lambda s: (int(m.group(1)), m.group(2)) if (m := re.match(r'^(\d+)(.*)', str(s["step_order"]))) else (0, str(s["step_order"])))
-        return steps
+    def parse_pipeline(s, c):
+        S = []
+        for r in c["rows"]:
+            o = dict(zip(c["cols"], r))
+            p = o.get("params_json", "")
+            o["params_json"] = json.loads(p) if isinstance(p, str) and p else {} if isinstance(p, str) else p if isinstance(p, dict) else {}
+            S.append(o)
+        S.sort(key=lambda x: ((m.group(1), m.group(2)) if (m := re.match(r'^(\d+)(.*)', str(x["step_order"]))) else (0, str(x["step_order"]))))
+        return S
 
-    def run(self, steps, ctx):
+    def run(s, S, C):
         i = 0
-        while i < len(steps):
-            step = steps[i]
-            if step.get("enabled") != "Y":
-                i += 1
-                continue
-            sid, op, params = step["step_id"], step["op_type"], step["params_json"]
-            on_error = step.get("on_error", "stop")
-            self.log.info(f"[{sid}] {op}")
-            if op == "end":
-                self.log.info("流程结束")
-                break
-            if op == "goto":
-                i = next((j for j, s in enumerate(steps) if s["step_id"] == params["target"]), -1)
-                if i == -1:
-                    self.log.error(f"[{sid}] goto目标不存在: {params['target']}")
-                    break
-                continue
-            if op == "condition":
-                ev = self.eval_vars_fn(ctx) if self.eval_vars_fn else {}
-                target = params["then"] if eval(params["check"], ev) else params["else"]
-                i = next((j for j, s in enumerate(steps) if s["step_id"] == target), -1)
-                if i == -1:
-                    self.log.error(f"[{sid}] condition目标不存在: {target}")
-                    break
-                continue
-            if op not in self.op_map:
-                self.log.error(f"[{sid}] 未知操作: {op}")
-                if on_error == "stop":
-                    raise ValueError(f"未知操作: {op}")
-                i += 1
-                continue
-            try:
-                result = self.op_map[op](ctx, params)
-                if self.result_handler:
-                    self.result_handler(ctx, sid, result, self.log)
-                else:
-                    ctx["results"][sid] = result
-            except Exception as e:
-                self.log.error(f"[{sid}] 执行失败: {e}")
-                if on_error == "stop":
-                    raise
-                self.log.warning(f"[{sid}] on_error={on_error}，继续执行")
+        while i < len(S):
+            t = S[i]
             i += 1
-        return ctx
+            if t.get("enabled") != "Y": continue
+            sid, op, p = t["step_id"], t["op_type"], t["params_json"]
+            s.l.info(f"[{sid}] {op}")
+            if op == "end": break
+            if op == "goto":
+                i = next((j for j, x in enumerate(S) if x["step_id"] == p["target"]), -1)
+                if i >= 0: continue
+                break
+            if op == "condition":
+                v = s.e(C) if s.e else {}
+                tgt = p["then"] if eval(p["check"], v) else p["else"]
+                i = next((j for j, x in enumerate(S) if x["step_id"] == tgt), -1)
+                continue
+            if op not in s.m: raise ValueError(f"未知操作: {op}")
+            res = s.m[op](C, p)
+            s.r(C, sid, res, s.l) if s.r else C.setdefault("results", {}).__setitem__(sid, res)
+        return C
 
-    def execute(self, config_path=None):
-        global BASE_DIR
-        if config_path is None:
-            config_path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(BASE_DIR, self.default_config)
-        if not os.path.isabs(config_path):
-            config_path = os.path.join(BASE_DIR, config_path)
-        if not os.path.exists(config_path):
-            self.log.error(f"配置文件不存在: {config_path}")
-            sys.exit(2)
-        BASE_DIR = os.path.dirname(os.path.abspath(config_path))
-        ctx = self.init_ctx() if self.init_ctx else {"results": {}}
-        ctx = self.run(self.parse_pipeline(self.load_config(config_path)), ctx)
-        if self.done_fn:
-            self.done_fn(ctx, self.log)
-        return ctx
+    def execute(s, p=None):
+        global D
+        if not p: p = sys.argv[1] if len(sys.argv) > 1 else os.path.join(D, s.c)
+        if not os.path.isabs(p): p = os.path.join(D, p)
+        D = os.path.dirname(os.path.abspath(p))
+        C = s.i() if s.i else {"results": {}}
+        C = s.run(s.parse_pipeline(s.load_config(p)), C)
+        if s.d: s.d(C, s.l)
+        return C
 
-    def main(self):
-        try:
-            self.execute()
-            sys.exit(0)
-        except SystemExit:
-            raise
-        except Exception as e:
-            self.log.error(f"执行失败: {e}")
-            sys.exit(1)
+    def main(s): s.execute()

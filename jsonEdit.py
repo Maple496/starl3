@@ -1,5 +1,5 @@
 # jsonEdit.py
-import json, os, re, subprocess, sys, threading
+import json, os, re, subprocess, sys, threading, time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
 
@@ -11,9 +11,8 @@ PROFILES = {
         "exe": "quick_ELT.exe",
         "py": "quick_elt.py",
         "python_exe": r"C:/Users/Administrator/AppData/Local/Python/pythoncore-3.14-64/python.exe",
-        "run_args": lambda temp, profile: [temp],  # 传给exe/py的参数
+        "run_args": lambda temp, profile: [temp],
         "columns": [
-            # name:列名  dtype:数据类型  width:列宽  label:显示标题  hidden:是否隐藏  default:新行默认值
             {"name": "step_id",    "dtype": "str",  "width": "80px",  "label": "Step ID",    "hidden": False, "default": ""},
             {"name": "step_order", "dtype": "int",  "width": "70px",  "label": "Step Order", "hidden": False, "default": "10", "auto_increment": 10},
             {"name": "op_type",    "dtype": "str",  "width": "90px",  "label": "Op Type",    "hidden": False, "default": "log"},
@@ -31,7 +30,7 @@ PROFILES = {
 ACTIVE_PROFILE_NAME = sys.argv[1] if len(sys.argv) > 1 and sys.argv[1] in PROFILES else "quickELT"
 P = PROFILES[ACTIVE_PROFILE_NAME]
 
-BASE_DIR = os.path.dirname(os.path.abspath(P["config_path"]))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 COL_NAMES = [c["name"] for c in P["columns"]]
 JSON_COLS = {i for i, c in enumerate(P["columns"]) if c["dtype"] == "json"}
 HIDDEN_COLS = [c["name"] for c in P["columns"] if c.get("hidden")]
@@ -44,6 +43,8 @@ runtime_settings = {
     "python_exe": P["python_exe"],
     "run_args_extra": "",
 }
+
+LAST_HEARTBEAT = time.time()
 
 def fix_json_str(s):
     if not isinstance(s, str): return s
@@ -108,16 +109,6 @@ def browse_path(mode, initial=""):
         result = filedialog.askopenfilename(initialdir=initial or BASE_DIR, filetypes=[("EXE", "*.exe"), ("All", "*.*")])
     else:
         result = filedialog.askopenfilename(initialdir=initial or BASE_DIR)
-    root.destroy()
-    return result or ""
-
-def browse_folder(initial=""):
-    import tkinter as tk
-    from tkinter import filedialog
-    root = tk.Tk()
-    root.withdraw()
-    root.attributes('-topmost', True)
-    result = filedialog.askdirectory(initialdir=initial or BASE_DIR)
     root.destroy()
     return result or ""
 
@@ -413,6 +404,7 @@ async function applySettingsAndReload(){
 
 document.addEventListener('keydown',e=>{if(!e.altKey&&e.key!=='F12')return;const k=e.key.toLowerCase();const map={'F12':saveAsConfig,s:saveConfig,a:addRow,r:runExe,f:openReplaceModal,q:reloadConfig,e:openJsonEditor,o:openFileChooser,t:sortByStepOrder,z:undoAction,g:openSettingsModal,n:openNewFileModal};const fn=map[e.key==='F12'?'F12':k];if(fn){e.preventDefault();fn()}});
 window.onload=loadConfig;
+setInterval(()=>fetch('/api/heartbeat', {method:'POST'}).catch(()=>{}), 2000);
 </script></body></html>"""
 
 def build_html():
@@ -429,11 +421,15 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(Handler._html)
 
     def do_POST(self):
+        global LAST_HEARTBEAT
         path = urlparse(self.path).path
         length = int(self.headers.get('Content-Length', 0))
         body = json.loads(self.rfile.read(length)) if length else {}
 
-        if path == '/api/load': self._json({'data': load_config_file(runtime_settings["config_path"])})
+        if path == '/api/heartbeat':
+            LAST_HEARTBEAT = time.time()
+            self._json({'ok': True})
+        elif path == '/api/load': self._json({'data': load_config_file(runtime_settings["config_path"])})
         elif path == '/api/reload': self._json({'data': load_config_file(body.get('path', runtime_settings["config_path"]))})
         elif path == '/api/save':
             fp = body.get('path', runtime_settings["config_path"])
@@ -492,10 +488,20 @@ class Handler(SimpleHTTPRequestHandler):
 
     def log_message(self, *a): pass
 
+def monitor_shutdown(server_inst):
+    global LAST_HEARTBEAT
+    while True:
+        time.sleep(1)
+        if time.time() - LAST_HEARTBEAT > 3:
+            print("UI closed. Shutting down...")
+            server_inst.shutdown()
+            break
+
 if __name__ == '__main__':
     ensure_config()
     port = 5001
     s = HTTPServer(('127.0.0.1', port), Handler)
     print(f"[{P['title']}] http://127.0.0.1:{port}  (profile={ACTIVE_PROFILE_NAME})")
     os.startfile(f"http://127.0.0.1:{port}")
+    threading.Thread(target=monitor_shutdown, args=(s,), daemon=True).start()
     s.serve_forever()

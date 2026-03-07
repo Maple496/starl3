@@ -1,213 +1,157 @@
-import sys
-import os
-import json
-import time
-import subprocess
-import logging
-from pathlib import Path
-from apscheduler.schedulers.blocking import BlockingScheduler
-from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.interval import IntervalTrigger
-from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED
+# quick_elt.py
+import os, logging
+import pandas as pd, numpy as np
+from pipeline_engine import PipelineEngine, BASE_DIR
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='{"time":"%(asctime)s","level":"%(levelname)s","msg":"%(message)s"}',
-    stream=sys.stdout
-)
-log = logging.getLogger("scheduler")
-
-if getattr(sys, 'frozen', False):
-    BASE_DIR = Path(sys.executable).parent
-else:
-    BASE_DIR = Path(__file__).parent
-
-STATE_FILE = BASE_DIR / ".scheduler_state.json"
+log = logging.getLogger("quickELT")
 
 
-def load_state():
-    if STATE_FILE.exists():
-        with open(STATE_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
+def op_read_excel(ctx, params):
+    return pd.read_excel(os.path.join(ctx["base_dir"], params["file"]), sheet_name=params.get("sheet", 0), header=params.get("header_row", 1) - 1)
 
+def op_read_csv(ctx, params):
+    fp = os.path.join(ctx["base_dir"], params["file"])
+    delim = params.get("delimiter", ",")
+    enc = params.get("encoding", "utf-8")
+    encs = [] if enc.strip().lower() == "auto" else [enc.strip()]
+    for e in ["utf-8-sig", "gb18030", "utf-16", "latin-1"]:
+        if e not in encs: encs.append(e)
+    for e in encs:
+        try:
+            return pd.read_csv(fp, encoding=e, delimiter=delim)
+        except (UnicodeDecodeError, UnicodeError):
+            pass
+    return pd.read_csv(fp, encoding="latin-1", delimiter=delim)
 
-def save_state(state):
-    with open(STATE_FILE, 'w', encoding='utf-8') as f:
-        json.dump(state, f, ensure_ascii=False, indent=2)
+def op_filter(ctx, params):
+    df, col, op, val = ctx["df"], params["column"], params["op"], params["value"]
+    return {">": lambda: df[df[col]>val], ">=": lambda: df[df[col]>=val], "<": lambda: df[df[col]<val], "<=": lambda: df[df[col]<=val], "==": lambda: df[df[col]==val], "!=": lambda: df[df[col]!=val]}[op]()
 
+def op_sort(ctx, params):
+    return ctx["df"].sort_values(by=params["column"], ascending=params.get("ascending", True))
 
-def load_schedule(path=None):
-    path = Path(path) if path else BASE_DIR / "schedule.json"
-    if not path.exists():
-        log.error(f"配置不存在: {path}")
-        sys.exit(2)
-    with open(path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+def op_rename(ctx, params):  return ctx["df"].rename(columns=params["map"])
+def op_drop(ctx, params):    return ctx["df"].drop(columns=params["columns"])
+def op_select(ctx, params):  return ctx["df"][params["columns"]]
 
+def op_fill_null(ctx, params):
+    df = ctx["df"]; df[params["column"]] = df[params["column"]].fillna(params["value"]); return df
 
-def build_command(task):
-    program = task["program"]
-    args = task.get("args", [])
-    ext = Path(program).suffix.lower()
-    if ext == ".py":
-        python = task.get("python", sys.executable)
-        return [python, str(BASE_DIR / program)] + [str(a) for a in args]
-    return [str(BASE_DIR / program)] + [str(a) for a in args]
+_T2 = ("pd.", "np.", ".str.", ".dt.", ".astype(", ".apply(", ".map(", ".fillna(", ".shift(", ".cumsum(", ".rank(", "lambda ")
 
+def _eval_t2(df, f):
+    lv = {c: df[c] for c in df.columns}
+    lv.update({"df": df, "pd": pd, "np": np, "str": str, "int": int, "float": float, "len": len})
+    return eval(f, {"__builtins__": __builtins__}, lv)
 
-def check_file_deps(task):
-    for f in task.get("depends_on_files", []):
-        if not (BASE_DIR / f).exists():
-            return False, str(f)
-    return True, None
-
-
-def run_task(task):
-    task_id = task["id"]
-    cmd = build_command(task)
-    timeout = task.get("timeout", 3600)
-    retry = task.get("retry", 0)
-    retry_delay = task.get("retry_delay", 5)
-
-    for attempt in range(1 + retry):
-        if attempt > 0:
-            log.info(f"[{task_id}] 第{attempt}次重试")
-            time.sleep(retry_delay)
-
-        log.info(f"[{task_id}] 执行: {' '.join(cmd)}")
-        start = time.time()
-
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=str(BASE_DIR))
-        elapsed = round(time.time() - start, 2)
-
-        if result.stdout.strip():
-            for line in result.stdout.strip().split('\n'):
-                log.info(f"[{task_id}:out] {line}")
-        if result.stderr.strip():
-            for line in result.stderr.strip().split('\n'):
-                log.warning(f"[{task_id}:err] {line}")
-
-        if result.returncode == 0:
-            log.info(f"[{task_id}] 成功 elapsed={elapsed}s")
-            return {"status": "success", "code": 0, "elapsed": elapsed}
-
-        log.error(f"[{task_id}] 失败(code={result.returncode}) elapsed={elapsed}s")
-
-    return {"status": "failed", "code": result.returncode, "elapsed": elapsed}
-
-
-def run_pipeline(tasks, on_failure="continue"):
-    results = {}
-    state = load_state()
-    from datetime import datetime
-    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log.info(f"调度开始 run_id={run_id} tasks={len(tasks)}")
-
-    for task in tasks:
-        task_id = task["id"]
-
-        if not task.get("enabled", True):
-            log.info(f"[{task_id}] 禁用，跳过")
-            results[task_id] = {"status": "skipped"}
-            continue
-
-        deps = task.get("depends_on", [])
-        dep_failed = next((d for d in deps if results.get(d, {}).get("status") != "success"), None)
-        if dep_failed:
-            log.warning(f"[{task_id}] 依赖 {dep_failed} 未成功，跳过")
-            results[task_id] = {"status": "dep_failed"}
-            continue
-
-        ok, missing = check_file_deps(task)
-        if not ok:
-            log.warning(f"[{task_id}] 文件缺失: {missing}，跳过")
-            results[task_id] = {"status": "file_missing"}
-            continue
-
-        result = run_task(task)
-        results[task_id] = result
-        state[task_id] = {"run_id": run_id, "time": datetime.now().isoformat(), **result}
-        save_state(state)
-
-        if result["status"] == "failed" and on_failure == "stop":
-            log.error("策略为stop，终止")
-            break
-
-    failed = sum(1 for r in results.values() if r.get("status") == "failed")
-    log.info(f"调度完成 run_id={run_id} failed={failed}")
-    return failed
-
-
-def build_trigger(schedule_cfg):
-    stype = schedule_cfg.get("type", "once")
-
-    if stype == "interval":
-        return IntervalTrigger(seconds=schedule_cfg.get("interval_seconds", 3600))
-
-    if stype == "cron":
-        return CronTrigger(**schedule_cfg.get("cron", {"hour": 8, "minute": 0}))
-
-    if stype == "daily":
-        at = schedule_cfg.get("at", "08:00")
-        h, m = at.split(":")
-        return CronTrigger(hour=int(h), minute=int(m))
-
-    if stype == "weekday":
-        at = schedule_cfg.get("at", "08:00")
-        h, m = at.split(":")
-        return CronTrigger(day_of_week="mon-fri", hour=int(h), minute=int(m))
-
-    return None
-
-
-def on_job_event(event):
-    if event.exception:
-        log.error(f"调度任务异常: {event.exception}")
+def op_calc(ctx, params):
+    df, nc, f = ctx["df"].copy(), params["new_col"], params["formula"]
+    if any(m in f for m in _T2): df[nc] = _eval_t2(df, f)
     else:
-        log.info(f"调度任务完成 retval={event.retval}")
+        try: df[nc] = df.eval(f)
+        except Exception: df[nc] = _eval_t2(df, f)
+    ctx["df"] = df; return df
 
+def op_group(ctx, params):   return ctx["df"].groupby(params["by"]).agg(params["agg"]).reset_index()
+def op_join(ctx, params):    return ctx["df"].merge(ctx["results"][params["source"]], on=params["on"], how=params.get("how", "left"))
+def op_pivot(ctx, params):   return ctx["df"].pivot_table(index=params["index"], columns=params["columns"], values=params["values"], aggfunc=params.get("agg", "sum")).reset_index()
+def op_unpivot(ctx, params): return ctx["df"].melt(id_vars=params["id_cols"], var_name=params.get("var_col", "variable"), value_name=params.get("value_col", "value"))
 
-def main():
-    config_path = sys.argv[1] if len(sys.argv) > 1 else None
-    mode = sys.argv[2] if len(sys.argv) > 2 else "once"
+def op_overlay(ctx, params):
+    df, src, tgt = ctx["df"], params["source_col"], params["target_col"]
+    df[tgt] = df[src].where(df[src].notna(), df[tgt])
+    return df.drop(columns=[src]) if params.get("drop", True) else df
 
-    config = load_schedule(config_path)
-    tasks = config["tasks"]
-    on_failure = config.get("on_failure", "continue")
+def op_split_write(ctx, params):
+    df, gc, nc = ctx["df"], params["group_col"], params.get("name_col", params["group_col"])
+    out = os.path.join(ctx["base_dir"], params["out_dir"]); os.makedirs(out, exist_ok=True)
+    for _, g in df.groupby(nc):
+        g.to_csv(os.path.join(out, str(g[nc].iloc[0]) + ".csv"), index=False, encoding=params.get("encoding", "utf-8-sig"))
+    return df
 
-    if mode == "once":
-        failed = run_pipeline(tasks, on_failure)
-        sys.exit(1 if failed else 0)
+def op_fuzzy_override(ctx, params):
+    df, rules = ctx["df"].copy(), ctx["results"][params["source"]]
+    mc, tc, cc, sv, tv = params["match_col"], params["text_col"], params["contains_col"], params["source_val_col"], params["target_val_col"]
+    for _, r in rules.iterrows():
+        mask = (df[mc] == r[mc]) & df[tc].astype(str).str.contains(str(r[cc]), na=False)
+        df.loc[mask, tv] = r[sv]
+    return df
 
-    schedule_cfg = config.get("schedule", {})
-    trigger = build_trigger(schedule_cfg)
+def op_write_excel(ctx, params):
+    fp = os.path.join(ctx["base_dir"], params["file"]); os.makedirs(os.path.dirname(fp), exist_ok=True)
+    ctx["df"].to_excel(fp, sheet_name=params.get("sheet", "Sheet1"), index=False); return ctx["df"]
 
-    if not trigger:
-        log.info("无定时配置，执行一次")
-        failed = run_pipeline(tasks, on_failure)
-        sys.exit(1 if failed else 0)
+def op_write_csv(ctx, params):
+    fp = os.path.join(ctx["base_dir"], params["file"])
+    os.makedirs(os.path.dirname(fp), exist_ok=True)
+    df = ctx["df"].copy()
+    if params.get("clean_newlines", True):
+        str_cols = df.select_dtypes(include=["object", "str"]).columns
+        df[str_cols] = df[str_cols].apply(lambda col: col.str.replace(r'[\r\n]+', ' ', regex=True) if col.dtype == object else col)
+    df.to_csv(fp, encoding=params.get("encoding", "utf-8-sig"), index=False, quoting=__import__('csv').QUOTE_NONNUMERIC)
+    return df
 
-    scheduler = BlockingScheduler()
-    scheduler.add_listener(on_job_event, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
+def op_log(ctx, params):
+    log.info(params["message"].format(row_count=len(ctx["df"]) if ctx["df"] is not None else 0)); return ctx["df"]
 
-    if schedule_cfg.get("run_on_start", True):
-        run_pipeline(tasks, on_failure)
+def op_rank(ctx, params):
+    df, col, nc = ctx["df"].copy(), params["column"], params.get("new_col", params["column"] + "_rank")
+    asc, method, gb = params.get("ascending", True), params.get("method", "min"), params.get("group_by")
+    df[nc] = df.groupby(gb)[col].rank(method=method, ascending=asc) if gb else df[col].rank(method=method, ascending=asc)
+    return df[df[nc] <= params["top_n"]] if params.get("top_n") else df
 
-    scheduler.add_job(run_pipeline, trigger, args=[tasks, on_failure], id="main_pipeline", max_instances=1)
+def op_value_counts(ctx, params):
+    vc = ctx["df"][params["column"]].value_counts(normalize=params.get("normalize", False), dropna=params.get("dropna", False)).reset_index()
+    vc.columns = [params["column"], params.get("count_col", "count")]
+    return vc.sort_values(params["column"], ascending=params["sort_ascending"]) if params.get("sort_ascending") is not None else vc
 
-    log.info(f"守护模式启动 trigger={trigger}")
-    scheduler.start()
+def op_bin(ctx, params):
+    df, col, nc = ctx["df"].copy(), params["column"], params.get("new_col", params["column"] + "_bin")
+    if "bins" in params: df[nc] = pd.cut(df[col], bins=params["bins"], labels=params.get("labels"), include_lowest=True)
+    elif "q" in params:  df[nc] = pd.qcut(df[col], q=params["q"], duplicates="drop", labels=params.get("labels"))
+    return df
 
+def op_describe(ctx, params):
+    sub = ctx["df"][params["columns"]] if params.get("columns") else ctx["df"].select_dtypes(include="number")
+    desc = sub.describe(percentiles=params.get("percentiles", [.25,.5,.75])).T.reset_index()
+    desc.rename(columns={"index": "column"}, inplace=True); return desc
+
+def op_cumulative(ctx, params):
+    df, col, nc, gb = ctx["df"].copy(), params["column"], params.get("new_col", params["column"]+"_cum"), params.get("group_by")
+    if params.get("sort_desc", True): df = df.sort_values(col, ascending=False)
+    if gb:
+        df[nc] = df.groupby(gb)[col].cumsum(); df[nc+"_pct"] = df.groupby(gb)[nc].transform(lambda x: x/x.max())
+    else:
+        df[nc] = df[col].cumsum(); df[nc+"_pct"] = df[nc] / df[nc].iloc[-1]
+    return df
+
+def op_head_tail(ctx, params):
+    df, n, mode = ctx["df"], params.get("n", 10), params.get("mode", "head")
+    if mode == "head": return df.head(n)
+    if mode == "tail": return df.tail(n)
+    return pd.concat([df.head(n), df.tail(n)]).drop_duplicates()
+
+OP_MAP = {
+    "read_excel": op_read_excel, "read_csv": op_read_csv, "filter": op_filter,
+    "sort": op_sort, "rename": op_rename, "select": op_select, "drop": op_drop,
+    "fill_null": op_fill_null, "calc": op_calc, "group": op_group, "join": op_join,
+    "pivot": op_pivot, "unpivot": op_unpivot, "write_excel": op_write_excel,
+    "write_csv": op_write_csv, "log": op_log, "overlay": op_overlay,
+    "fuzzy_override": op_fuzzy_override, "split_write": op_split_write,
+    "rank": op_rank, "value_counts": op_value_counts, "bin": op_bin,
+    "describe": op_describe, "cumulative": op_cumulative, "head_tail": op_head_tail,
+}
+
+def _result_handler(ctx, sid, result, lg):
+    if result is not None:
+        ctx["df"] = result; ctx["results"][sid] = result
+        lg.info(f"[{sid}] 完成 rows={len(result)}")
 
 if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        log.info("手动中止")
-        sys.exit(0)
-    except SystemExit:
-        raise
-    except Exception as e:
-        log.error(f"调度器异常: {e}")
-        sys.exit(1)
+    PipelineEngine(
+        OP_MAP, log=log, default_config="config.json",
+        init_ctx=lambda: {"df": None, "results": {}, "base_dir": BASE_DIR},
+        eval_vars_fn=lambda ctx: {"row_count": len(ctx["df"]) if ctx["df"] is not None else 0},
+        result_handler=_result_handler,
+        done_fn=lambda ctx, lg: lg.info(f"执行完成 total_rows={len(ctx['df']) if ctx['df'] is not None else 0}")
+    ).main()
