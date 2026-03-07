@@ -1,4 +1,3 @@
-# jsonEdit.py
 import json, os, re, subprocess, sys, threading, time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
@@ -93,6 +92,14 @@ def get_runner():
     if not os.path.isfile(py): return None, f"Python脚本不存在: {py}"
     return None, "找不到执行文件"
 
+def get_runner_cmd_str():
+    exe = os.path.join(BASE_DIR, runtime_settings["exe"])
+    py = os.path.join(BASE_DIR, runtime_settings["py"])
+    python_exe = runtime_settings["python_exe"].strip()
+    if os.path.isfile(exe): return f'"{exe}"'
+    if os.path.isfile(python_exe) and os.path.isfile(py): return f'"{python_exe}" "{py}"'
+    return None
+
 def browse_path(mode, initial=""):
     import tkinter as tk
     from tkinter import filedialog
@@ -133,7 +140,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><
 .btn{padding:10px 20px;border:none;border-radius:6px;font-size:15px;cursor:pointer;font-weight:600;transition:all .15s}
 .btn-save{background:#10b981;color:#fff}.btn-add{background:#f59e0b;color:#fff}.btn-run{background:#6366f1;color:#fff}.btn-reload{background:#3b82f6;color:#fff}
 .btn-undo{background:#64748b;color:#fff}.btn-edit{background:#ec4899;color:#fff}.btn-open{background:#14b8a6;color:#fff}.btn-sort{background:#f97316;color:#fff}.btn-saveas{background:#8b5cf6;color:#fff}
-.btn-replace{background:#f43f5e;color:#fff}.btn-settings{background:#78716c;color:#fff}.btn-new{background:#0ea5e9;color:#fff}
+.btn-replace{background:#f43f5e;color:#fff}.btn-settings{background:#78716c;color:#fff}.btn-new{background:#0ea5e9;color:#fff}.btn-gen{background:#22d3ee;color:#fff}
 .row-action-bar{display:flex;gap:4px;padding:4px 0 2px 0}
 .table-wrap{background:#fff;border-radius:8px;box-shadow:0 1px 8px rgba(0,0,0,.06);overflow:auto;flex:1}
 table{width:100%;border-collapse:collapse;table-layout:fixed}thead{position:sticky;top:0;z-index:10}
@@ -163,14 +170,15 @@ td textarea{width:100%;padding:6px 8px;border:1px solid #e5e7eb;border-radius:4p
 <span class="path">📄 <span id="configPathLabel"></span><span id="dirtyFlag" class="dirty-indicator">● 未保存</span></span>
 <button class="btn btn-reload" onclick="reloadConfig()">🔄 重载 <small>Alt+Q</small></button>
 <button class="btn btn-save" onclick="saveConfig()">💾 保存 <small>Alt+S</small></button>
-<button class="btn btn-saveas" onclick="saveAsConfig()">📂 另存 <small>F12</small></button>
+<button class="btn btn-saveas" onclick="openSaveAsModal()">📂 另存 <small>F12</small></button>
 <button class="btn btn-replace" onclick="openReplaceModal()">🔍 替换 <small>Alt+F</small></button>
 <button class="btn btn-add" onclick="addRow()">＋ 新增 <small>Alt+A</small></button>
 <button class="btn btn-undo" onclick="undoAction()">↩ 撤回 <small id="undoIndicator"></small></button>
 <button class="btn btn-edit" onclick="openJsonEditor()">📝 JSON <small>Alt+E</small></button>
-<button class="btn btn-new" onclick="openNewFileModal()">🆕 新建 <small>Alt+N</small></button>
+<button class="btn btn-new" onclick="openFileModal('new')">🆕 新建 <small>Alt+N</small></button>
 <button class="btn btn-open" onclick="openFileChooser()">📂 打开 <small>Alt+O</small></button>
 <button class="btn btn-sort" onclick="sortByStepOrder()">🔢 排序 <small>Alt+T</small></button>
+<button class="btn btn-gen" onclick="openFileModal('gen')">🔧 生成 <small>Alt+B</small></button>
 <button class="btn btn-settings" onclick="openSettingsModal()">⚙ 设置 <small>Alt+G</small></button>
 <button class="btn btn-run" onclick="runExe()">▶ 运行 <small>Alt+R</small></button>
 </div>
@@ -278,63 +286,74 @@ function openReplaceModal(){const root=document.getElementById('modalRoot');root
 function doReplaceAll(){const f=document.getElementById('fStr').value,r=document.getElementById('rStr').value;if(!f)return;pushHistory();let n=0;DATA.rows.forEach(row=>row.forEach((v,i)=>{if(typeof v==='string'&&v.includes(f)){row[i]=v.split(f).join(r);n++}}));renderRows();markDirty();closeModal();showToast('替换 '+n+' 处','success')}
 function openFileChooser(){document.getElementById('fileInput').click()}
 function handleFileOpen(e){const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=ev=>{try{const o=JSON.parse(ev.target.result);delete o.idx;pushHistory();DATA=o;currentConfigPath=f.name;document.getElementById('configPathLabel').textContent=f.name;renderTable();markClean()}catch(err){alert(err)}};rd.readAsText(f)}
-function saveAsConfig(){const p=prompt('另存为:',currentConfigPath);if(p)api('/api/saveas',{data:DATA,path:p}).then(j=>{if(!j.error){currentConfigPath=j.saved_path;document.getElementById('configPathLabel').textContent=j.saved_path;markClean();showToast('已另存','success')}})}
 
-function openNewFileModal(){
+function openFileModal(mode){
+    const titles={saveas:'📂 另存为',new:'🆕 新建 JSON 文件',gen:'🔧 生成 BAT 脚本'};
+    const exts={saveas:'.json',new:'.json',gen:'.bat'};
+    const btns={saveas:'💾 保存',new:'✅ 创建并打开',gen:'✅ 生成'};
+    const btnColors={saveas:'#8b5cf6',new:'#0ea5e9',gen:'#22d3ee'};
     const root=document.getElementById('modalRoot');
-    root.innerHTML=`<div class="modal-overlay"><div class="modal-box" style="height:auto;max-height:380px">
-<div class="modal-header"><h3>🆕 新建 JSON 文件</h3></div>
+    let extraHtml='';
+    if(mode==='gen'){
+        extraHtml=`<div class="hint">运行参数将默认使用当前 JSON 配置文件路径: <b>${esc(currentConfigPath)}</b></div>`;
+    }
+    root.innerHTML=`<div class="modal-overlay"><div class="modal-box" style="height:auto;max-height:480px">
+<div class="modal-header"><h3>${titles[mode]}</h3></div>
 <div class="modal-body" style="overflow-y:auto"><div class="settings-form">
 <label>保存目录</label>
 <div class="input-row">
-  <input type="text" id="new_dir" placeholder="点击浏览选择目录..." style="flex:1;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;font-family:monospace">
-  <button class="btn-browse" onclick="browseNewDir()">📂 浏览</button>
+  <input type="text" id="fm_dir" placeholder="点击浏览选择目录..." style="flex:1;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;font-family:monospace">
+  <button class="btn-browse" onclick="browseAndFill('fm_dir','folder')">📂 浏览</button>
 </div>
 <label>文件名</label>
 <div class="input-row">
-  <input type="text" id="new_filename" placeholder="例如: my_config（无需填 .json）" style="flex:1;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;font-family:monospace">
-  <span style="color:#9ca3af;font-size:14px;white-space:nowrap">.json</span>
+  <input type="text" id="fm_filename" placeholder="例如: my_file（无需填后缀）" style="flex:1;padding:10px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;font-family:monospace">
+  <span style="color:#9ca3af;font-size:14px;white-space:nowrap">${esc(exts[mode])}</span>
 </div>
-<div class="hint" id="new_preview" style="color:#6366f1;font-size:13px;min-height:20px"></div>
+${extraHtml}
+<div class="hint" id="fm_preview" style="color:#6366f1;font-size:13px;min-height:20px"></div>
 </div></div>
 <div class="modal-footer">
-  <button class="modal-btn" style="background:#0ea5e9;color:#fff" onclick="doCreateNewFile()">✅ 创建并打开</button>
+  <button class="modal-btn" style="background:${btnColors[mode]};color:#fff" onclick="doFileModalAction('${mode}')">${btns[mode]}</button>
   <button class="modal-btn" onclick="closeModal()">取消</button>
 </div></div></div>`;
-    document.getElementById('new_filename').addEventListener('input', updateNewPreview);
-    document.getElementById('new_dir').addEventListener('input', updateNewPreview);
+    const updatePreview=()=>{
+        const dir=document.getElementById('fm_dir').value.trim();
+        const name=document.getElementById('fm_filename').value.trim();
+        const p=document.getElementById('fm_preview');
+        p.textContent=(dir&&name)?'将创建: '+dir.replace(/[\\\/]$/,'')+'/'+name+exts[mode]:'';
+    };
+    document.getElementById('fm_filename').addEventListener('input',updatePreview);
+    document.getElementById('fm_dir').addEventListener('input',updatePreview);
+    if(mode==='saveas'){
+        const parts=currentConfigPath.replace(/\\/g,'/').split('/');
+        const fname=parts.pop().replace(/\.[^.]+$/,'');
+        document.getElementById('fm_dir').value=parts.join('/')||'.';
+        document.getElementById('fm_filename').value=fname;
+        updatePreview();
+    }
 }
 
-function updateNewPreview(){
-    const dir=document.getElementById('new_dir').value.trim();
-    const name=document.getElementById('new_filename').value.trim();
-    const preview=document.getElementById('new_preview');
-    if(dir&&name) preview.textContent='将创建: '+dir.replace(/\\$/,'')+'/'+name+'.json';
-    else preview.textContent='';
-}
+function openSaveAsModal(){collectAll();openFileModal('saveas')}
 
-async function browseNewDir(){
-    const j=await api('/api/browse',{mode:'folder',initial:document.getElementById('new_dir').value.trim()});
-    if(j.path){document.getElementById('new_dir').value=j.path;updateNewPreview();}
-}
-
-async function doCreateNewFile(){
-    const dir=document.getElementById('new_dir').value.trim();
-    const name=document.getElementById('new_filename').value.trim();
+async function doFileModalAction(mode){
+    const dir=document.getElementById('fm_dir').value.trim();
+    const name=document.getElementById('fm_filename').value.trim();
     if(!dir){showToast('请选择保存目录');return;}
     if(!name){showToast('请输入文件名');return;}
-    const j=await api('/api/new',{dir,name});
-    if(j.error){showToast(j.error);return;}
-    pushHistory();
-    DATA=j.data;
-    currentConfigPath=j.path;
-    document.getElementById('configPathLabel').textContent=j.path;
-    renderTable();
-    markClean();
-    historyStack=[];
-    updateUndoIndicator();
-    closeModal();
-    showToast('已创建并打开: '+j.path,'success');
+    if(mode==='saveas'){
+        const fn=name.toLowerCase().endsWith('.json')?name:name+'.json';
+        const j=await api('/api/saveas',{data:DATA,path:dir.replace(/[\\\/]$/,'')+'/'+fn});
+        if(!j.error){currentConfigPath=j.saved_path;document.getElementById('configPathLabel').textContent=j.saved_path;markClean();closeModal();showToast('已另存','success')}
+    } else if(mode==='new'){
+        const j=await api('/api/new',{dir,name});
+        if(j.error){showToast(j.error);return;}
+        pushHistory();DATA=j.data;currentConfigPath=j.path;document.getElementById('configPathLabel').textContent=j.path;renderTable();markClean();historyStack=[];updateUndoIndicator();closeModal();showToast('已创建并打开: '+j.path,'success');
+    } else if(mode==='gen'){
+        const j=await api('/api/genbat',{dir,name,args:currentConfigPath});
+        if(j.error){showToast(j.error);return;}
+        closeModal();showToast('已生成: '+j.path,'success');
+    }
 }
 
 function openSettingsModal(){
@@ -402,7 +421,7 @@ async function applySettingsAndReload(){
     else showToast(j.error||'重载失败');
 }
 
-document.addEventListener('keydown',e=>{if(!e.altKey&&e.key!=='F12')return;const k=e.key.toLowerCase();const map={'F12':saveAsConfig,s:saveConfig,a:addRow,r:runExe,f:openReplaceModal,q:reloadConfig,e:openJsonEditor,o:openFileChooser,t:sortByStepOrder,z:undoAction,g:openSettingsModal,n:openNewFileModal};const fn=map[e.key==='F12'?'F12':k];if(fn){e.preventDefault();fn()}});
+document.addEventListener('keydown',e=>{if(!e.altKey&&e.key!=='F12')return;const k=e.key.toLowerCase();const map={'F12':()=>openSaveAsModal(),s:saveConfig,a:addRow,r:runExe,f:openReplaceModal,q:reloadConfig,e:openJsonEditor,o:openFileChooser,t:sortByStepOrder,z:undoAction,g:openSettingsModal,n:()=>openFileModal('new'),b:()=>openFileModal('gen')};const fn=map[e.key==='F12'?'F12':k];if(fn){e.preventDefault();fn()}});
 window.onload=loadConfig;
 setInterval(()=>fetch('/api/heartbeat', {method:'POST'}).catch(()=>{}), 2000);
 </script></body></html>"""
@@ -459,6 +478,21 @@ class Handler(SimpleHTTPRequestHandler):
             with open(fp, 'w', encoding='utf-8') as f:
                 json.dump(default, f, ensure_ascii=False, indent=2)
             self._json({'ok': True, 'path': fp, 'data': default})
+        elif path == '/api/genbat':
+            dir_ = body.get('dir', '').strip()
+            name = body.get('name', '').strip()
+            args = body.get('args', '').strip()
+            if not name.lower().endswith('.bat'):
+                name = name + '.bat'
+            fp = os.path.join(dir_, name)
+            cmd_str = get_runner_cmd_str()
+            if not cmd_str:
+                self._json({'error': '找不到可用的执行程序（EXE或Python解释器+脚本）'})
+                return
+            lines = ['@echo off', f'chcp 65001 >nul', f'{cmd_str} {args}'.strip(), 'pause']
+            with open(fp, 'w', encoding='utf-8') as f:
+                f.write('\r\n'.join(lines) + '\r\n')
+            self._json({'ok': True, 'path': fp})
         elif path == '/api/run':
             s = body.get('settings', runtime_settings)
             for k in runtime_settings:
@@ -490,9 +524,11 @@ class Handler(SimpleHTTPRequestHandler):
 
 def monitor_shutdown(server_inst):
     global LAST_HEARTBEAT
+    time.sleep(10)  # 等浏览器打开并加载完
+    LAST_HEARTBEAT = time.time()  # 重置心跳基准
     while True:
         time.sleep(1)
-        if time.time() - LAST_HEARTBEAT > 3:
+        if time.time() - LAST_HEARTBEAT > 8:
             print("UI closed. Shutting down...")
             server_inst.shutdown()
             break
