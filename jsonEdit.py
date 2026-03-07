@@ -6,11 +6,11 @@ from urllib.parse import urlparse
 PROFILES = {
     "quickELT": {
         "title": "QuickELT Config Editor",
-        "config_path": "config.json",
+        "config_path": "configs/quick_elt_config.json",
         "temp_path": "config_tempXX.json",
-        "exe": "quickELT.exe",
-        "py": "quickELT.py",
-        "python_exe": r"F:\JSA\python\venv\Scripts\python.exe",
+        "exe": "quick_ELT.exe",
+        "py": "quick_elt.py",
+        "python_exe": r"C:/Users/Administrator/AppData/Local/Python/pythoncore-3.14-64/python.exe",
         "run_args": lambda temp, profile: [temp],  # 传给exe/py的参数
         "columns": [
             # name:列名  dtype:数据类型  width:列宽  label:显示标题  hidden:是否隐藏  default:新行默认值

@@ -86,7 +86,7 @@ def op_write_csv(ctx, params):
     encoding = params.get("encoding", "utf-8-sig")
     df = ctx["df"].copy()
     if params.get("clean_newlines", True):
-        str_cols = df.select_dtypes(include="object").columns
+        str_cols = df.select_dtypes(include=["object", "str"]).columns
         df[str_cols] = df[str_cols].apply(
             lambda col: col.str.replace(r'[\r\n]+', ' ', regex=True) if col.dtype == object else col
         )
