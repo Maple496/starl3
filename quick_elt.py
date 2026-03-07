@@ -1,15 +1,16 @@
 # quick_elt.py
 import os, logging
 import pandas as pd, numpy as np
-from pipeline_engine import BASE_DIR, main
+from pipeline_engine import PipelineEngine
 
 log = logging.getLogger("quickELT")
 
+
 def op_read_excel(ctx, params):
-    return pd.read_excel(os.path.join(BASE_DIR, params["file"]), sheet_name=params.get("sheet", 0), header=params.get("header_row", 1) - 1)
+    return pd.read_excel(os.path.join(ctx["base_dir"], params["file"]), sheet_name=params.get("sheet", 0), header=params.get("header_row", 1) - 1)
 
 def op_read_csv(ctx, params):
-    fp = os.path.join(BASE_DIR, params["file"])
+    fp = os.path.join(ctx["base_dir"], params["file"])
     delim = params.get("delimiter", ",")
     enc = params.get("encoding", "utf-8")
     encs = [] if enc.strip().lower() == "auto" else [enc.strip()]
@@ -63,7 +64,7 @@ def op_overlay(ctx, params):
 
 def op_split_write(ctx, params):
     df, gc, nc = ctx["df"], params["group_col"], params.get("name_col", params["group_col"])
-    out = os.path.join(BASE_DIR, params["out_dir"]); os.makedirs(out, exist_ok=True)
+    out = os.path.join(ctx["base_dir"], params["out_dir"]); os.makedirs(out, exist_ok=True)
     for _, g in df.groupby(nc):
         g.to_csv(os.path.join(out, str(g[nc].iloc[0]) + ".csv"), index=False, encoding=params.get("encoding", "utf-8-sig"))
     return df
@@ -77,20 +78,17 @@ def op_fuzzy_override(ctx, params):
     return df
 
 def op_write_excel(ctx, params):
-    fp = os.path.join(BASE_DIR, params["file"]); os.makedirs(os.path.dirname(fp), exist_ok=True)
+    fp = os.path.join(ctx["base_dir"], params["file"]); os.makedirs(os.path.dirname(fp), exist_ok=True)
     ctx["df"].to_excel(fp, sheet_name=params.get("sheet", "Sheet1"), index=False); return ctx["df"]
 
 def op_write_csv(ctx, params):
-    fp = os.path.join(BASE_DIR, params["file"])
+    fp = os.path.join(ctx["base_dir"], params["file"])
     os.makedirs(os.path.dirname(fp), exist_ok=True)
-    encoding = params.get("encoding", "utf-8-sig")
     df = ctx["df"].copy()
     if params.get("clean_newlines", True):
         str_cols = df.select_dtypes(include=["object", "str"]).columns
-        df[str_cols] = df[str_cols].apply(
-            lambda col: col.str.replace(r'[\r\n]+', ' ', regex=True) if col.dtype == object else col
-        )
-    df.to_csv(fp, encoding=encoding, index=False, quoting=__import__('csv').QUOTE_NONNUMERIC)
+        df[str_cols] = df[str_cols].apply(lambda col: col.str.replace(r'[\r\n]+', ' ', regex=True) if col.dtype == object else col)
+    df.to_csv(fp, encoding=params.get("encoding", "utf-8-sig"), index=False, quoting=__import__('csv').QUOTE_NONNUMERIC)
     return df
 
 def op_log(ctx, params):
@@ -150,10 +148,10 @@ def _result_handler(ctx, sid, result, lg):
         lg.info(f"[{sid}] 完成 rows={len(result)}")
 
 if __name__ == '__main__':
-    main(
+    PipelineEngine(
         OP_MAP, log=log, default_config="config.json",
-        init_ctx=lambda: {"df": None, "results": {}},
+        init_ctx=lambda: {"df": None, "results": {}, "base_dir": ""},
         eval_vars_fn=lambda ctx: {"row_count": len(ctx["df"]) if ctx["df"] is not None else 0},
         result_handler=_result_handler,
         done_fn=lambda ctx, lg: lg.info(f"执行完成 total_rows={len(ctx['df']) if ctx['df'] is not None else 0}")
-    )
+    ).main()
