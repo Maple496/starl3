@@ -1,0 +1,12 @@
+{
+  "cols": [
+    "step_id",
+    "step_order",
+    "op_type",
+    "params_json",
+    "enabled",
+    "on_error",
+    "note"
+  ],
+  "rows": []
+}
