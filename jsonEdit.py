@@ -233,6 +233,6 @@ def ms(sv):
  global LH;time.sleep(10);LH=time.time()
  while True:
   time.sleep(1)
-  if time.time()-LH>8:print("UI closed. Shutting down...");sv.shutdown();break
+  if time.time()-LH>28:print("UI closed. Shutting down...");sv.shutdown();break
 if __name__=='__main__':
  ec();port=5001;s=HTTPServer(('127.0.0.1',port),Q);print(f"[{P['title']}] http://127.0.0.1:{port}  (profile={A})");os.startfile(f"http://127.0.0.1:{port}");threading.Thread(target=ms,args=(s,),daemon=True).start();s.serve_forever()

@@ -1,0 +1,31 @@
+{
+  "cols": [
+    "step_id",
+    "step_order",
+    "op_type",
+    "params_json",
+    "enabled",
+    "on_error",
+    "note"
+  ],
+  "rows": [
+    [
+      "测试",
+      "10",
+      "run_exe",
+      "{\"script\":\"F:/starl3/elt_ops.exe\",\"args\":\"F:/starl3/configs/elt_ops_config.json\"}",
+      "Y",
+      "stop",
+      ""
+    ],
+    [
+      "测试2",
+      "20",
+      "run_exe",
+      "{\"script\":\"F:/starl3/elt_ops.exe\",\"args\":\"F:/starl3/configs/elt_ops_config.json\"}",
+      "Y",
+      "stop",
+      ""
+    ]
+  ]
+}
