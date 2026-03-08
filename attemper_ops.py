@@ -5,28 +5,30 @@ import os
 import time
 import logging
 from pipeline_engine import PipelineEngine
-
-# ========== 关键：直接导入，而非动态加载文件 ==========
 import elt_ops
 import file_ops
 
 log = logging.getLogger("scheduler")
 
+# ========== 先不放自己，避免循环引用 ==========
 OPS_MODULE_MAP = {
     "elt": elt_ops,
     "file": file_ops,
+    # "attemper" 延迟注册
 }
 
 def run_py(ctx, params):
     """调度 Python 子流程"""
     file = params["file"]
     ops = params["ops"]
-    
+    # ========== 关键：用到时才把自己注册进去 ==========
+    import attemper_ops
+    OPS_MODULE_MAP["attemper"] = attemper_ops
+
     mod = OPS_MODULE_MAP.get(ops)
     if mod is None:
         raise RuntimeError(f"未知的 ops 类型: {ops}, 可选: {list(OPS_MODULE_MAP.keys())}")
-    
-    # 直接调用模块的 run 函数
+
     mod.run(file)
 
 def run_exe(ctx, params):
@@ -65,7 +67,6 @@ OP_MAP = {
 }
 
 def _result_handler(ctx, sid, result, lg):
-    """处理每步结果"""
     if result is not None:
         ctx["results"][sid] = result
 
