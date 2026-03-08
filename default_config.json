@@ -1,0 +1,203 @@
+
+
+
+{
+    "elt_ops": {
+      "read_excel": {
+        "file": "str — 文件路径，相对于 base_dir，例如 'data/input.xlsx'",
+        "sheet": "str|int — 可选，工作表名称或索引，默认 0（第一个sheet）",
+        "header_row": "int — 可选，表头所在行号（从1开始计数），默认 1"
+      },
+    
+      "read_csv": {
+        "file": "str — 文件路径，相对于 base_dir，例如 'data/input.csv'",
+        "delimiter": "str — 可选，分隔符，默认 ','，常见取值: ',', '\\t', '|', ';'",
+        "encoding": "str — 可选，编码格式，默认 'utf-8'。设为 'auto' 时自动尝试 utf-8-sig → gb18030 → utf-16 → latin-1"
+      },
+    
+      "filter": {
+        "column": "str — 要过滤的列名",
+        "op": "str — 比较运算符，取值范围: '>', '>=', '<', '<=', '==', '!='",
+        "value": "any — 比较值，类型需与列数据类型一致（数字/字符串等）"
+      },
+    
+      "sort": {
+        "column": "str|list — 排序列名，单列为 str，多列为 list",
+        "ascending": "bool — 可选，是否升序，默认 true"
+      },
+    
+      "rename": {
+        "map": "dict — 列名映射，格式: {\"旧列名\": \"新列名\", ...}，例如 {\"old_col\": \"new_col\"}"
+      },
+    
+      "select": {
+        "columns": "list[str] — 要保留的列名列表，例如 [\"col1\", \"col2\", \"col3\"]"
+      },
+    
+      "drop": {
+        "columns": "list[str] — 要删除的列名列表，例如 [\"col1\", \"col2\"]"
+      },
+    
+      "fill_null": {
+        "column": "str — 要填充空值的列名",
+        "value": "any — 填充值，类型需与列数据类型一致，例如 0, '', 'N/A'"
+      },
+    
+      "calc": {
+        "new_col": "str — 新生成的列名",
+        "formula": "str — 计算公式。支持两种模式：(1) pandas eval 表达式，如 'col_a + col_b'；(2) Python 表达式（含 pd./np./.str./.dt./.astype()/.apply()/.map()/.fillna()/.shift()/.cumsum()/.rank()/lambda 关键字时自动启用），如 'col_a.str.upper()', 'np.where(col_a > 0, 1, 0)'。可直接引用列名作为变量，也可使用 df 引用整个 DataFrame"
+      },
+    
+      "group": {
+        "by": "str|list[str] — 分组列，单列为 str，多列为 list",
+        "agg": "dict — 聚合规则，格式: {\"列名\": \"聚合函数\"} 或 {\"列名\": [\"聚合函数1\", \"聚合函数2\"]}。常见聚合函数: 'sum', 'mean', 'count', 'min', 'max', 'first', 'last', 'std', 'median', 'nunique'"
+      },
+    
+      "join": {
+        "source": "str — 要连接的另一个数据源的 step_id（即之前某步骤的 id）",
+        "on": "str|list[str] — 连接键，单列为 str，多列为 list",
+        "how": "str — 可选，连接方式，默认 'left'。取值范围: 'left', 'right', 'inner', 'outer', 'cross'"
+      },
+    
+      "pivot": {
+        "index": "str|list[str] — 行索引列",
+        "columns": "str — 转为列头的列名",
+        "values": "str|list[str] — 要聚合的值列",
+        "agg": "str — 可选，聚合函数，默认 'sum'。取值范围: 'sum', 'mean', 'count', 'min', 'max', 'first', 'last', 'median'"
+      },
+    
+      "unpivot": {
+        "id_cols": "list[str] — 保持不变的标识列",
+        "var_col": "str — 可选，列转行后存放原列名的新列名，默认 'variable'",
+        "value_col": "str — 可选，列转行后存放值的新列名，默认 'value'"
+      },
+    
+      "overlay": {
+        "source_col": "str — 源列名（优先使用该列的值覆盖目标列）",
+        "target_col": "str — 目标列名（被覆盖的列）",
+        "drop": "bool — 可选，覆盖完成后是否删除 source_col，默认 true"
+      },
+    
+      "fuzzy_override": {
+        "source": "str — 规则表的 step_id（之前某步骤的 id，该步骤结果作为匹配规则）",
+        "match_col": "str — 精确匹配列名（主表和规则表中都需存在该列）",
+        "text_col": "str — 主表中用于文本包含匹配的列名",
+        "contains_col": "str — 规则表中包含关键词的列名（用于 str.contains 匹配 text_col）",
+        "source_val_col": "str — 规则表中的值列名（匹配成功时取此列的值）",
+        "target_val_col": "str — 主表中要被覆盖的目标列名"
+      },
+    
+      "split_write": {
+        "group_col": "str — 用于分组的列名",
+        "name_col": "str — 可选，用于生成文件名的列名，默认与 group_col 相同",
+        "out_dir": "str — 输出目录路径，相对于 base_dir，例如 'output/split'",
+        "encoding": "str — 可选，输出文件编码，默认 'utf-8-sig'"
+      },
+    
+      "rank": {
+        "column": "str — 要排名的列名",
+        "new_col": "str — 可选，排名结果列名，默认 '{column}_rank'",
+        "ascending": "bool — 可选，是否升序排名，默认 true",
+        "method": "str — 可选，排名方法，默认 'min'。取值范围: 'min', 'max', 'first', 'dense', 'average'",
+        "group_by": "str|list[str] — 可选，分组排名的分组列，不传则全局排名",
+        "top_n": "int — 可选，仅保留排名前 N 的行，不传则保留全部"
+      },
+    
+      "value_counts": {
+        "column": "str — 要统计频次的列名",
+        "count_col": "str — 可选，计数结果列名，默认 'count'",
+        "normalize": "bool — 可选，是否返回占比而非计数，默认 false",
+        "dropna": "bool — 可选，是否排除空值，默认 false",
+        "sort_ascending": "bool|null — 可选，按列值排序方向。true=升序，false=降序，不传(null)则按频次降序（默认行为）"
+      },
+    
+      "bin": {
+        "column": "str — 要分箱的列名",
+        "new_col": "str — 可选，分箱结果列名，默认 '{column}_bin'",
+        "bins": "list[number] — 等距分箱的边界列表，例如 [0, 10, 50, 100, 500]。与 q 二选一",
+        "q": "int — 等频分箱的分位数数量，例如 4 表示四分位。与 bins 二选一",
+        "labels": "list[str] — 可选，分箱标签，长度需为 bins 数-1 或 等于 q，例如 ['低', '中', '高']"
+      },
+    
+      "describe": {
+        "columns": "list[str] — 可选，要统计描述的列名列表。不传则自动选取所有数字类型列",
+        "percentiles": "list[float] — 可选，百分位数列表，默认 [0.25, 0.5, 0.75]，取值范围 0~1，例如 [0.1, 0.25, 0.5, 0.75, 0.9]"
+      },
+    
+      "cumulative": {
+        "column": "str — 要做累计的列名",
+        "new_col": "str — 可选，累计结果列名，默认 '{column}_cum'（同时自动生成 '{new_col}_pct' 累计百分比列）",
+        "group_by": "str|list[str] — 可选，分组累计的分组列，不传则全局累计",
+        "sort_desc": "bool — 可选，是否按列值降序排列后再累计，默认 true"
+      },
+    
+      "head_tail": {
+        "n": "int — 可选，取行数，默认 10",
+        "mode": "str — 可选，取行模式，默认 'head'。取值范围: 'head'（前N行）, 'tail'（后N行）, 'both'（前N行+后N行去重合并）"
+      },
+    
+      "write_excel": {
+        "file": "str — 输出文件路径，相对于 base_dir，例如 'output/result.xlsx'（目录不存在时自动创建）",
+        "sheet": "str — 可选，工作表名称，默认 'Sheet1'"
+      },
+    
+      "write_csv": {
+        "file": "str — 输出文件路径，相对于 base_dir，例如 'output/result.csv'（目录不存在时自动创建）",
+        "encoding": "str — 可选，输出编码，默认 'utf-8-sig'",
+        "clean_newlines": "bool — 可选，是否将文本列中的换行符替换为空格，默认 true"
+      },
+    
+      "log": {
+        "message": "str — 日志消息模板，支持 {row_count} 占位符表示当前 DataFrame 行数，例如 '当前数据共 {row_count} 行'"
+      }
+    },
+    "file_ops": {
+      "copy": {
+        "source": "str — 可选，单个源文件/目录路径（支持glob通配符），与 sources 二选一，相对于 base_dir，例如 'data/input.txt'",
+        "sources": "list[str] — 可选，多个源文件/目录路径列表（每项支持glob通配符），与 source 二选一，例如 ['data/*.txt', 'logs/**/*.log']",
+        "dest": "str — 必填，目标路径，相对于 base_dir，例如 'backup/' 或 'backup/output.txt'",
+        "overwrite": "bool — 可选，目标已存在时是否覆盖，默认 false。为 false 时跳过已存在的目标",
+        "dest_is_dir": "bool — 可选，dest 是否为目录，默认 true。为 true 时文件复制到该目录下保留原文件名；为 false 时 dest 作为完整目标文件路径"
+      },
+      "move": {
+        "source": "str — 可选，单个源文件/目录路径（支持glob通配符），与 sources 二选一，相对于 base_dir，例如 'temp/result.csv'",
+        "sources": "list[str] — 可选，多个源文件/目录路径列表（每项支持glob通配符），与 source 二选一，例如 ['temp/*.csv', 'temp/*.xlsx']",
+        "dest": "str — 必填，目标路径，相对于 base_dir，例如 'archive/'",
+        "overwrite": "bool — 可选，目标已存在时是否覆盖，默认 false。为 false 时跳过已存在的目标",
+        "dest_is_dir": "bool — 可选，dest 是否为目录，默认 true。为 true 时文件移动到该目录下保留原文件名；为 false 时 dest 作为完整目标文件路径"
+      },
+      "delete": {
+        "source": "str — 可选，单个文件/目录路径（支持glob通配符），与 sources 二选一，相对于 base_dir，例如 'temp/old_file.txt'",
+        "sources": "list[str] — 可选，多个文件/目录路径列表（每项支持glob通配符），与 source 二选一，例如 ['temp/*.tmp', 'cache/**/*']",
+        "force": "bool — 可选，是否强制删除非空目录，默认 false。为 true 时使用 shutil.rmtree 递归删除目录；为 false 时仅能删除空目录（os.rmdir）"
+      },
+      "mkdir": {
+        "dir": "str — 可选，单个目录路径，与 dirs 二选一，相对于 base_dir，例如 'output/reports'",
+        "dirs": "list[str] — 可选，多个目录路径列表，与 dir 二选一，例如 ['output/reports', 'output/logs', 'backup']。自动创建中间目录（makedirs exist_ok=True）"
+      },
+      "rename": {
+        "source": "str — 必填，要重命名的源文件/目录路径，相对于 base_dir，例如 'data/old_name.xlsx'",
+        "new_name": "str — 必填，新文件名（仅文件名，不含目录路径），例如 'new_name.xlsx'。重命名后文件保留在原目录中"
+      },
+      "list": {
+        "pattern": "str — 可选，glob匹配模式，默认 '*'，相对于 base_dir，例如 'data/*.csv' 或 'data/**/*.xlsx'（配合 recursive=true 使用 ** 通配符）",
+        "recursive": "bool — 可选，是否递归搜索子目录，默认 false。为 true 时 pattern 中的 ** 会匹配任意层级子目录"
+      },
+      "log": {
+        "message": "str — 必填，日志消息模板，支持 Python format 占位符：{file_count}（当前上下文已处理的文件计数）、{row_count}（当前 DataFrame 行数），例如 '处理了 {file_count} 个文件，共 {row_count} 行数据'"
+      }
+    },
+    "attemper_ops": {
+      "run_py": {
+        "script": "str — Python脚本文件路径，例如 'scripts/process.py'",
+        "args": "list — 可选，传递给脚本的命令行参数列表，例如 ['--input', 'data.csv']，默认 []",
+        "cwd": "str|null — 可选，脚本执行的工作目录路径，默认 null（当前目录）"
+      },
+      "run_exe": {
+        "exe": "str — 可执行文件路径或名称，例如 'ffmpeg' 或 'C:/tools/app.exe'",
+        "args": "list — 可选，传递给可执行文件的命令行参数列表，例如 ['-i', 'input.mp4']，默认 []",
+        "cwd": "str|null — 可选，程序执行的工作目录路径，默认 null（当前目录）"
+      }
+    }
+  }
+  

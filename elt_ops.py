@@ -155,3 +155,4 @@ if __name__ == '__main__':
         result_handler=_result_handler,
         done_fn=lambda ctx, lg: lg.info(f"执行完成 total_rows={len(ctx['df']) if ctx['df'] is not None else 0}")
     ).main()
+    
