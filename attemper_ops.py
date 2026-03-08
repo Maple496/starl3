@@ -1,26 +1,25 @@
+#attemper_ops.py
 import subprocess
 import sys
 import os
 import time
-from file_ops import OP_MAP as FILE_OPS
-from elt_ops import OP_MAP as ELT_OPS
-
+import importlib.util
+OPS_MODULE_MAP = {
+    "elt": "elt_ops",
+    "file": "file_ops",
+}
 def run_py(ctx, params):
-    """调度Python脚本"""
-    script = params.get("script")
-    args = params.get("args", [])
-    cwd = params.get("cwd", None)
-    # args 兼容字符串和列表
-    if isinstance(args, str):
-        args = [args] if args else []
-    cmd = [sys.executable, script] + [str(a) for a in args]
-    print(f"[run_py] 执行: {' '.join(cmd)}")
-    r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
-    if r.stdout.strip():
-        print(r.stdout.strip())
-    if r.returncode != 0:
-        raise RuntimeError(f"py脚本失败: {script}\n{r.stderr}")
-    return r.stdout.strip()
+    file = params["file"]
+    ops = params["ops"]
+    
+    module_name = OPS_MODULE_MAP[ops]
+    module_file = os.path.join(os.path.dirname(__file__), f"{module_name}.py")
+    
+    spec = importlib.util.spec_from_file_location(module_name, module_file)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    
+    mod.run(file)
 
 def run_exe(ctx, params):
     """调度EXE程序"""

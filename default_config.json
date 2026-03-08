@@ -186,18 +186,17 @@
     },
     "attemper_ops": {
       "run_py": {
-        "script": "str — Python脚本文件路径，例如 'scripts/process.py'",
-        "args": "list|str — 可选，传递给脚本的命令行参数列表，例如 ['--input', 'data.csv']，也支持单个字符串如 '--help'，默认 []",
-        "cwd": "str|null — 可选，脚本执行的工作目录路径，默认 null（当前目录）"
+        "file": "str — 要执行的目标文件路径，传递给对应ops模块的run函数，例如 'data/input.csv'",
+        "ops": "str — 操作模块类型，决定调用哪个ops模块执行处理。可选值: 'elt'(调用elt_ops.py) | 'file'(调用file_ops.py)"
       },
       "run_exe": {
-        "exe": "str — 可执行文件路径或名称，例如 'ffmpeg' 或 'C:/tools/app.exe'（也兼容 'script' 字段名）",
-        "args": "list|str — 可选，传递给可执行文件的命令行参数列表，例如 ['-i', 'input.mp4']，也支持单个字符串如 '-version'，默认 []",
+        "exe": "str — 可执行文件路径或名称，例如 'ffmpeg' 或 'C:/tools/app.exe'（也可用 'script' 作为字段名，两者二选一）",
+        "args": "list|str — 可选，传递给可执行文件的命令行参数，支持列表或字符串格式，例如 ['-i', 'input.mp4'] 或 '--help'，默认 []",
         "cwd": "str|null — 可选，程序执行的工作目录路径，默认 null（当前目录）"
       },
       "wait": {
-        "seconds": "number — 可选，等待的秒数，支持整数和小数，例如 5 或 1.5，默认 0",
-        "message": "str — 可选，等待前输出的提示信息，例如 '等待服务启动...'，默认 ''（不输出）"
+        "seconds": "number — 可选，等待的秒数，支持整数和小数，例如 10 或 1.5，默认 0",
+        "message": "str — 可选，等待开始时打印的提示信息，例如 '等待数据库就绪'，默认 ''（不打印）"
       }
     }
   }

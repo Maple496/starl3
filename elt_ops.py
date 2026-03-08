@@ -1,4 +1,5 @@
-# quick_elt.py
+#elt_ops.py
+
 import os, logging
 import pandas as pd, numpy as np
 from pipeline_engine import PipelineEngine, BASE_DIR
@@ -147,12 +148,13 @@ def _result_handler(ctx, sid, result, lg):
         ctx["df"] = result; ctx["results"][sid] = result
         lg.info(f"[{sid}] 完成 rows={len(result)}")
 
-if __name__ == '__main__':
+def run(config_path):
     PipelineEngine(
         OP_MAP, log=log, default_config="config.json",
         init_ctx=lambda: {"df": None, "results": {}, "base_dir": BASE_DIR},
         eval_vars_fn=lambda ctx: {"row_count": len(ctx["df"]) if ctx["df"] is not None else 0},
         result_handler=_result_handler,
         done_fn=lambda ctx, lg: lg.info(f"执行完成 total_rows={len(ctx['df']) if ctx['df'] is not None else 0}")
-    ).main()
-    
+    ).execute(config_path)
+if __name__ == '__main__':
+    run(None)
