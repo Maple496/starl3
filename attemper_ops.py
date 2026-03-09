@@ -24,7 +24,6 @@ def run_py(ctx, params):
     # ========== 关键：用到时才把自己注册进去 ==========
     import attemper_ops
     OPS_MODULE_MAP["attemper"] = attemper_ops
-
     mod = OPS_MODULE_MAP.get(ops)
     if mod is None:
         raise RuntimeError(f"未知的 ops 类型: {ops}, 可选: {list(OPS_MODULE_MAP.keys())}")

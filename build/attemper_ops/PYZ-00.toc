@@ -161,6 +161,7 @@
   ('asyncio.windows_utils',
    'C:\\Users\\Administrator\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\asyncio\\windows_utils.py',
    'PYMODULE'),
+  ('attemper_ops', 'F:\\starl3\\attemper_ops.py', 'PYMODULE'),
   ('base64',
    'C:\\Users\\Administrator\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\base64.py',
    'PYMODULE'),

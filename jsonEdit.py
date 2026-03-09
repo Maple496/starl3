@@ -1,11 +1,11 @@
 import json,os,re,subprocess,sys,threading,time
 from http.server import HTTPServer,SimpleHTTPRequestHandler
 from urllib.parse import urlparse
-PROFILES={"quickELT":{"title":"QuickELT Config Editor","config_path":"configs/quick_elt_config.json","temp_path":"config_tempXX.json","exe":"attemper_ops.exe","py":"elt_ops.py","python_exe":r"C:/Users/Administrator/AppData/Local/Python/pythoncore-3.14-64/python.exe","run_args":lambda t,p:[t],"columns":[{"name":"step_id","dtype":"str","width":"80px","label":"Step ID","hidden":False,"default":""},{"name":"step_order","dtype":"int","width":"70px","label":"Step Order","hidden":False,"default":"10","auto_increment":10},{"name":"op_type","dtype":"str","width":"90px","label":"Op Type","hidden":False,"default":"log"},{"name":"params_json","dtype":"json","width":"auto","label":"Params JSON","hidden":False,"default":"{}"},{"name":"enabled","dtype":"enum","width":"60px","label":"Enabled","hidden":True,"default":"Y","enum_values":["Y","N"]},{"name":"on_error","dtype":"str","width":"80px","label":"On Error","hidden":False,"default":"stop"},{"name":"note","dtype":"str","width":"150px","label":"Note","hidden":False,"default":""}],"default_rows":[["","10","log","{}","Y","stop",""]],"sort_col":"step_order","toggle_col":"enabled"}}
+PROFILES={"quickELT":{"title":"QuickELT Config Editor","config_path":"configs/quick_elt_config.json","exe":"dispatcher.exe","py":"attemper.py","python_exe":r"C:/Users/Administrator/AppData/Local/Python/pythoncore-3.14-64/python.exe","run_args":lambda t,p:[t],"columns":[{"name":"step_id","dtype":"str","width":"80px","label":"Step ID","hidden":False,"default":""},{"name":"step_order","dtype":"int","width":"70px","label":"Step Order","hidden":False,"default":"10","auto_increment":10},{"name":"op_type","dtype":"str","width":"90px","label":"Op Type","hidden":False,"default":"log"},{"name":"params_json","dtype":"json","width":"auto","label":"Params JSON","hidden":False,"default":"{}"},{"name":"enabled","dtype":"enum","width":"60px","label":"Enabled","hidden":True,"default":"Y","enum_values":["Y","N"]},{"name":"on_error","dtype":"str","width":"80px","label":"On Error","hidden":False,"default":"stop"},{"name":"note","dtype":"str","width":"150px","label":"Note","hidden":False,"default":""}],"default_rows":[["","10","log","{}","Y","stop",""]],"sort_col":"step_order","toggle_col":"enabled"}}
 A=sys.argv[1] if len(sys.argv)>1 and sys.argv[1]in PROFILES else"quickELT"
 P=PROFILES[A];B=os.path.dirname(os.path.abspath(__file__));CN=[c["name"]for c in P["columns"]];JC={i for i,c in enumerate(P["columns"])if c["dtype"]=="json"};HC=[c["name"]for c in P["columns"]if c.get("hidden")];WC=[c["name"]for c in P["columns"]if c["dtype"]=="json"]
 RS={"config_path":P["config_path"],"exe":P["exe"],"py":P["py"],"python_exe":P["python_exe"],"run_args_extra":""}
-LH=time.time()
+
 DC={}
 def load_default_config():
  global DC
@@ -187,7 +187,7 @@ class Q(SimpleHTTPRequestHandler):
   self.send_response(200);self.send_header('Content-Type','text/html;charset=utf-8');self.end_headers();self.wfile.write(Q._h)
  def do_POST(self):
   global LH;p=urlparse(self.path).path;l=int(self.headers.get('Content-Length',0));b=json.loads(self.rfile.read(l))if l else{}
-  if p=='/api/heartbeat':LH=time.time();self._j({'ok':1})
+  if p=='/api/heartbeat':self._j({'ok':1})
   elif p=='/api/load':self._j({'data':lf(RS["config_path"])})
   elif p=='/api/reload':self._j({'data':lf(b.get('path',RS["config_path"]))})
   elif p=='/api/save':
@@ -216,7 +216,8 @@ class Q(SimpleHTTPRequestHandler):
    s=b.get('settings',RS)
    for k in RS:
     if k in s:RS[k]=s[k]
-   t=os.path.join(B,P["temp_path"])
+   cp=RS["config_path"]
+   t=os.path.splitext(cp)[0]+"_temp"+os.path.splitext(cp)[1]
    with open(t,'w',encoding='utf-8')as f:json.dump(cc(b['data']),f,ensure_ascii=False,indent=2)
    c,m=gr()
    if c:
@@ -229,10 +230,6 @@ class Q(SimpleHTTPRequestHandler):
  def _j(self,o):
   d=json.dumps(o,ensure_ascii=False).encode('utf-8');self.send_response(200);self.send_header('Content-Type','application/json');self.end_headers();self.wfile.write(d)
  def log_message(self,*a):pass
-def ms(sv):
- global LH;time.sleep(10);LH=time.time()
- while True:
-  time.sleep(1)
-  if time.time()-LH>28:print("UI closed. Shutting down...");sv.shutdown();break
+
 if __name__=='__main__':
- ec();port=5001;s=HTTPServer(('127.0.0.1',port),Q);print(f"[{P['title']}] http://127.0.0.1:{port}  (profile={A})");os.startfile(f"http://127.0.0.1:{port}");threading.Thread(target=ms,args=(s,),daemon=True).start();s.serve_forever()
+ ec();port=5001;s=HTTPServer(('127.0.0.1',port),Q);print(f"[{P['title']}] http://127.0.0.1:{port}  (profile={A})");os.startfile(f"http://127.0.0.1:{port}");s.serve_forever()
