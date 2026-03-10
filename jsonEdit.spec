@@ -5,7 +5,7 @@ a = Analysis(
     ['jsonEdit.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('default_config.json', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

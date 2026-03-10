@@ -18,17 +18,18 @@ OPS_MODULE_MAP = {
 }
 
 def run_py(ctx, params):
-    """调度 Python 子流程"""
     file = params["file"]
-    ops = params["ops"]
-    # ========== 关键：用到时才把自己注册进去 ==========
     import attemper_ops
     OPS_MODULE_MAP["attemper"] = attemper_ops
-    mod = OPS_MODULE_MAP.get(ops)
-    if mod is None:
-        raise RuntimeError(f"未知的 ops 类型: {ops}, 可选: {list(OPS_MODULE_MAP.keys())}")
-
-    mod.run(file)
+    basename = os.path.basename(file)
+    ops = None
+    for key in OPS_MODULE_MAP:
+        if basename.startswith(f"{key}_ops"):
+            ops = key
+            break
+    if ops is None:
+        raise RuntimeError(f"无法从文件名 '{basename}' 识别ops类型, 文件名需以 {'、'.join(k+'_ops' for k in OPS_MODULE_MAP)} 开头")
+    OPS_MODULE_MAP[ops].run(file)
 
 def run_exe(ctx, params):
     """调度EXE程序"""
