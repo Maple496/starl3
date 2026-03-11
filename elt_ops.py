@@ -1,10 +1,9 @@
 #elt_ops.py
 
-import os, logging
+import os
 import pandas as pd, numpy as np
 from pipeline_engine import PipelineEngine, BASE_DIR
 
-log = logging.getLogger("quickELT")
 
 
 def op_read_excel(ctx, params):
@@ -92,8 +91,6 @@ def op_write_csv(ctx, params):
     df.to_csv(fp, encoding=params.get("encoding", "utf-8-sig"), index=False, quoting=__import__('csv').QUOTE_NONNUMERIC)
     return df
 
-def op_log(ctx, params):
-    log.info(params["message"].format(row_count=len(ctx["df"]) if ctx["df"] is not None else 0)); return ctx["df"]
 
 def op_rank(ctx, params):
     df, col, nc = ctx["df"].copy(), params["column"], params.get("new_col", params["column"] + "_rank")
@@ -137,7 +134,7 @@ OP_MAP = {
     "sort": op_sort, "rename": op_rename, "select": op_select, "drop": op_drop,
     "fill_null": op_fill_null, "calc": op_calc, "group": op_group, "join": op_join,
     "pivot": op_pivot, "unpivot": op_unpivot, "write_excel": op_write_excel,
-    "write_csv": op_write_csv, "log": op_log, "overlay": op_overlay,
+    "write_csv": op_write_csv, "overlay": op_overlay,
     "fuzzy_override": op_fuzzy_override, "split_write": op_split_write,
     "rank": op_rank, "value_counts": op_value_counts, "bin": op_bin,
     "describe": op_describe, "cumulative": op_cumulative, "head_tail": op_head_tail,
@@ -150,7 +147,7 @@ def _result_handler(ctx, sid, result, lg):
 
 def run(config_path):
     PipelineEngine(
-        OP_MAP, log=log, default_config="config.json",
+        OP_MAP, 
         init_ctx=lambda: {"df": None, "results": {}, "base_dir": BASE_DIR},
         eval_vars_fn=lambda ctx: {"row_count": len(ctx["df"]) if ctx["df"] is not None else 0},
         result_handler=_result_handler,

@@ -1,9 +1,7 @@
 
-import os, shutil, logging
+import os, shutil
 import pandas as pd
 from pipeline_engine import BASE_DIR, PipelineEngine
-
-log = logging.getLogger("fileOps")
 
 def _resolve(path):
     return path if os.path.isabs(path) else os.path.join(BASE_DIR, path)
@@ -34,15 +32,13 @@ def _result_handler(ctx, sid, result, lg):
     if result is not None:
         ctx["df"] = result
         ctx["results"][sid] = result
-
 def run(config_path):
     PipelineEngine(
-        OP_MAP, log=log, default_config="config.json",
-        init_ctx=lambda: {"df": None, "results": {}},
+        OP_MAP, 
+        init_ctx=lambda: {"df": None, "results": {}, "base_dir": BASE_DIR},
         eval_vars_fn=lambda ctx: {"row_count": len(ctx["df"]) if ctx["df"] is not None else 0},
         result_handler=_result_handler,
         done_fn=lambda ctx, lg: lg.info(f"执行完成 total_rows={len(ctx['df']) if ctx['df'] is not None else 0}")
     ).execute(config_path)
-
 if __name__ == '__main__':
     run(None)
