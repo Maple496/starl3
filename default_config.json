@@ -180,6 +180,16 @@
         "pattern": "str — 可选，glob匹配模式，默认 '*'，相对于 base_dir，例如 'data/*.csv' 或 'data/**/*.xlsx'（配合 recursive=true 使用 ** 通配符）",
         "recursive": "bool — 可选，是否递归搜索子目录，默认 false。为 true 时 pattern 中的 ** 会匹配任意层级子目录"
       },
+      "filter": {
+        "source": "str — 单个源文件路径或glob模式，例如 'data/*'（与 sources 二选一）",
+        "sources": "list — 多个源文件路径或glob模式列表，例如 ['data/*', 'input/*.csv']（与 source 二选一）",
+        "conditions": "list — 过滤条件列表，每个条件为一个对象，所有条件之间为 AND 关系",
+        "conditions[].property": "str — 文件属性名，可选值：'mtime'（修改时间）、'ctime'（创建时间）、'size'（文件大小，字节）、'name'（文件名）、'ext'（扩展名，含点号如 '.csv'）",
+        "conditions[].operator": "str — 比较运算符，可选值：'gt'（大于）、'gte'（大于等于）、'lt'（小于）、'lte'（小于等于）、'eq'（等于）、'neq'（不等于）、'between'（介于 value 和 value2 之间，含边界）、'contains'（包含子串）、'startswith'（以...开头）、'endswith'（以...结尾）、'regex'（正则匹配）",
+        "conditions[].value": "any — 比较目标值，时间属性支持字符串格式 'YYYY-MM-DD HH:MM:SS'，例如 '2024-01-01 00:00:00'",
+        "conditions[].value2": "any — 可选，仅当 operator 为 'between' 时需要，表示范围上界",
+        "action": "str — 可选，对匹配文件的处理方式：'skip'（返回未匹配的文件列表）、'pause'（匹配时暂停等待用户确认）、'delete'（收集匹配文件）、'collect'（收集匹配文件），默认 'skip'"
+      },
       "log": {
         "message": "str — 必填，日志消息模板，支持 Python format 占位符：{file_count}（当前上下文已处理的文件计数）、{row_count}（当前 DataFrame 行数），例如 '处理了 {file_count} 个文件，共 {row_count} 行数据'"
       }
