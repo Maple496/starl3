@@ -150,48 +150,16 @@
     },
     "file_ops": {
       "copy": {
-        "source": "str — 可选，单个源文件/目录路径（支持glob通配符），与 sources 二选一，相对于 base_dir，例如 'data/input.txt'",
-        "sources": "list[str] — 可选，多个源文件/目录路径列表（每项支持glob通配符），与 source 二选一，例如 ['data/*.txt', 'logs/**/*.log']",
-        "dest": "str — 必填，目标路径，相对于 base_dir，例如 'backup/' 或 'backup/output.txt'",
-        "overwrite": "bool — 可选，目标已存在时是否覆盖，默认 false。为 false 时跳过已存在的目标",
-        "dest_is_dir": "bool — 可选，dest 是否为目录，默认 true。为 true 时文件复制到该目录下保留原文件名；为 false 时 dest 作为完整目标文件路径"
+        "file": "str — 源文件或目录路径，例如 'data/report.xlsx' 或 'C:/files/image.png'",
+        "dest": "str — 目标目录路径，文件将被复制到该目录下，例如 'backup/'，若目录不存在会自动创建"
       },
       "move": {
-        "source": "str — 可选，单个源文件/目录路径（支持glob通配符），与 sources 二选一，相对于 base_dir，例如 'temp/result.csv'",
-        "sources": "list[str] — 可选，多个源文件/目录路径列表（每项支持glob通配符），与 source 二选一，例如 ['temp/*.csv', 'temp/*.xlsx']",
-        "dest": "str — 必填，目标路径，相对于 base_dir，例如 'archive/'",
-        "overwrite": "bool — 可选，目标已存在时是否覆盖，默认 false。为 false 时跳过已存在的目标",
-        "dest_is_dir": "bool — 可选，dest 是否为目录，默认 true。为 true 时文件移动到该目录下保留原文件名；为 false 时 dest 作为完整目标文件路径"
-      },
-      "delete": {
-        "source": "str — 可选，单个文件/目录路径（支持glob通配符），与 sources 二选一，相对于 base_dir，例如 'temp/old_file.txt'",
-        "sources": "list[str] — 可选，多个文件/目录路径列表（每项支持glob通配符），与 source 二选一，例如 ['temp/*.tmp', 'cache/**/*']",
-        "force": "bool — 可选，是否强制删除非空目录，默认 false。为 true 时使用 shutil.rmtree 递归删除目录；为 false 时仅能删除空目录（os.rmdir）"
-      },
-      "mkdir": {
-        "dir": "str — 可选，单个目录路径，与 dirs 二选一，相对于 base_dir，例如 'output/reports'",
-        "dirs": "list[str] — 可选，多个目录路径列表，与 dir 二选一，例如 ['output/reports', 'output/logs', 'backup']。自动创建中间目录（makedirs exist_ok=True）"
+        "file": "str — 源文件或目录路径，例如 'temp/output.csv'",
+        "dest": "str — 目标目录路径，文件将被移动到该目录下，例如 'archive/'，若目录不存在会自动创建"
       },
       "rename": {
-        "source": "str — 必填，要重命名的源文件/目录路径，相对于 base_dir，例如 'data/old_name.xlsx'",
-        "new_name": "str — 必填，新文件名（仅文件名，不含目录路径），例如 'new_name.xlsx'。重命名后文件保留在原目录中"
-      },
-      "list": {
-        "pattern": "str — 可选，glob匹配模式，默认 '*'，相对于 base_dir，例如 'data/*.csv' 或 'data/**/*.xlsx'（配合 recursive=true 使用 ** 通配符）",
-        "recursive": "bool — 可选，是否递归搜索子目录，默认 false。为 true 时 pattern 中的 ** 会匹配任意层级子目录"
-      },
-      "filter": {
-        "source": "str — 单个源文件路径或glob模式，例如 'data/*'（与 sources 二选一）",
-        "sources": "list — 多个源文件路径或glob模式列表，例如 ['data/*', 'input/*.csv']（与 source 二选一）",
-        "conditions": "list — 过滤条件列表，每个条件为一个对象，所有条件之间为 AND 关系",
-        "conditions[].property": "str — 文件属性名，可选值：'mtime'（修改时间）、'ctime'（创建时间）、'size'（文件大小，字节）、'name'（文件名）、'ext'（扩展名，含点号如 '.csv'）",
-        "conditions[].operator": "str — 比较运算符，可选值：'gt'（大于）、'gte'（大于等于）、'lt'（小于）、'lte'（小于等于）、'eq'（等于）、'neq'（不等于）、'between'（介于 value 和 value2 之间，含边界）、'contains'（包含子串）、'startswith'（以...开头）、'endswith'（以...结尾）、'regex'（正则匹配）",
-        "conditions[].value": "any — 比较目标值，时间属性支持字符串格式 'YYYY-MM-DD HH:MM:SS'，例如 '2024-01-01 00:00:00'",
-        "conditions[].value2": "any — 可选，仅当 operator 为 'between' 时需要，表示范围上界",
-        "action": "str — 可选，对匹配文件的处理方式：'skip'（返回未匹配的文件列表）、'pause'（匹配时暂停等待用户确认）、'delete'（收集匹配文件）、'collect'（收集匹配文件），默认 'skip'"
-      },
-      "log": {
-        "message": "str — 必填，日志消息模板，支持 Python format 占位符：{file_count}（当前上下文已处理的文件计数）、{row_count}（当前 DataFrame 行数），例如 '处理了 {file_count} 个文件，共 {row_count} 行数据'"
+        "file": "str — 需要重命名的文件或目录路径，例如 'data/old_name.txt'",
+        "new_name": "str — 新的文件名（仅文件名，不含目录路径），例如 'new_name.txt'，文件将在原目录下重命名"
       }
     },
     "attemper_ops": {
@@ -206,6 +174,37 @@
       "wait": {
         "seconds": "number — 可选，等待的秒数，支持整数和小数，例如 10 或 1.5，默认 0",
         "message": "str — 可选，等待开始时打印的提示信息，例如 '等待数据库就绪'，默认 ''（不打印）"
+      }
+    },
+    "ai_ops":{
+      "chat":{
+        "url": "str — 可选，聊天接口URL，默认 'https://api.openai.com/v1/chat/completions'，也可替换为其他兼容OpenAI API的服务地址",
+        "apikey": "str — 可选，API密钥，默认从环境变量 OPENAI_API_KEY 读取",
+        "content": "str — 聊天内容，支持 {row_count} 占位符表示当前 DataFrame 行数，例如 '请分析以下数据，共 {row_count} 行'",
+        "model": "str — 可选，聊天模型名称，默认 'gpt-3.5-turbo'，常见取值: 'gpt-3.5-turbo', 'gpt-4', 'gpt-4-32k'",
+        "prompt": "str — 聊天提示语，支持 {row_count} 占位符表示当前 DataFrame 行数，例如 '请分析以下数据，共 {row_count} 行'",
+        "output_file": "str — 可选，聊天结果输出文件路径，相对于 base_dir，例如 'output/chat_result.txt'（目录不存在时自动创建），默认 ''（不输出文件）"
+      },
+      "voicetostr":{
+        "url": "str — 可选，语音接口URL，默认 'https://api.openai.com/v1/audio/speech'，也可替换为其他兼容OpenAI API的服务地址",
+        "apikey": "str — 可选，API密钥，默认从环境变量 OPENAI_API_KEY 读取",
+        "file": "str — 语音输入文件路径，相对于 base_dir，例如 'data/input.wav'",
+        "model": "str — 可选，语音模型名称，默认 'whisper-1'，常见取值: 'whisper-1'",
+        "prompt": "str — 可选，语音识别提示语，例如 '请将以下语音内容转写为文本'",
+        "output_file": "str — 可选，语音识别结果输出文件路径，相对于 base_dir，例如 'output/voice_result.txt'（目录不存在时自动创建），默认 ''（不输出文件）"
+      },
+      "strtovoice":{
+        "url": "str — 可选，语音接口URL，默认 'https://api.openai.com/v1/audio/speech'，也可替换为其他兼容OpenAI API的服务地址",
+        "apikey": "str — 可选，API密钥，默认从环境变量 OPENAI_API_KEY 读取",
+        "text": "str — 要合成的文本内容，支持 {row_count} 占位符表示当前 DataFrame 行数，例如 '请将以下文本内容合成为语音，共 {row_count} 行'",
+        "model": "str — 可选，语音模型名称，默认 'whisper-1'，常见取值: 'whisper-1'",
+        "output_file": "str — 可选，语音合成结果输出文件路径，相对于 base_dir，例如 'output/speech_result.wav'（目录不存在时自动创建），默认 ''（不输出文件）"
+      }
+    },
+    "datavisual_ops":{
+      "htmltable":{
+        "file": "str — 输出HTML文件路径，相对于 base_dir，例如 'output/table.html'（目录不存在时自动创建）",
+        "styles": "dict — 可选，表格样式设置，格式: {\"selector\": {\"property\": \"value\", ...}, ...}，例如 {\"table\": {\"border\": \"1px solid black\"}, \"th\": {\"background-color\": \"#f2f2f2\"}}"
       }
     }
   }

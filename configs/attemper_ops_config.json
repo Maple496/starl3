@@ -12,8 +12,8 @@
     [
       "",
       "10",
-      "log",
-      "{}",
+      "copy",
+      "{\"file\":\"C:/Users/Administrator/Desktop/r.txt\",\"dest\":\"C:/Users/Administrator/Desktop/新建文件夹 (3)\"}",
       "Y",
       "stop",
       ""
