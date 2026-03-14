@@ -184,7 +184,7 @@
         "prompt": "str — 可选，系统提示词，默认 '你是一个语音助手...'",
         "content_key": "str|null — 可选，从 ctx 中读取该键作为用户消息内容；未设置时依次回退到 ctx['last_result'] → ctx['user_input']"
       },
-      "output":{
+      "print_content":{
       },
       "userinput":{
       }

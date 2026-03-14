@@ -6,7 +6,6 @@
     "params_json",
     "enabled",
     "on_error",
-    "depends_on",
     "note"
   ],
   "rows": [
@@ -14,10 +13,9 @@
       "1",
       "1",
       "userinput",
-      "{\"hint\":\"请输入内容:\"}",
+      "{\"hint\":\"请输入内容22:\"}",
       "Y",
       "stop",
-      "",
       ""
     ],
     [
@@ -27,17 +25,15 @@
       "{\"url\":\"https://www.dmxapi.cn/v1/chat/completions\",\"apikey\":\"sk-sSC1DK9S6J8wfWHjWyowRWkWaANzi9tSD2xLi5FFKWXEYhkj\"}",
       "Y",
       "stop",
-      "1",
       ""
     ],
     [
       "3",
       "3",
-      "output",
+      "print_content",
       "{}",
       "Y",
       "stop",
-      "",
       ""
     ]
   ]

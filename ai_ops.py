@@ -18,7 +18,7 @@ def chat(ctx, params):
     url = params.get("url", "https://api.liaobots.com/v1/chat/completions")
     apikey = params.get("apikey", "sk-")
     headers = {"Authorization": f"Bearer {apikey}", "Content-Type": "application/json"}
-    content = ctx.get(params.get("input_key", "last_result"), "")
+    content = params.get("content",ctx.get("last_result"))
     data = {
         "model": params.get("model", "gemini-3.1-flash-lite-preview"),
         "messages": [
@@ -27,18 +27,16 @@ def chat(ctx, params):
         ]
     }
     res = requests.post(url, headers=headers, json=data).json()
-
     result = res["choices"][0]["message"]["content"]
     ctx["last_result"] = result
 
-def output(ctx, params):
-
+def print_content(ctx, params):
     print(ctx["last_result"])
 
 
 OP_MAP = {
     "chat": chat,
-    "output": output,
+    "print_content": print_content,
     "userinput": userinput,
 }
 
@@ -47,7 +45,7 @@ def run(config_path=None):
         OP_MAP,
         default_config="scheduler_config.json",
         init_ctx=lambda: {"results": {}, "last_result": ""},
-        result_handler=lambda ctx, sid, res, lg: (ctx["results"].__setitem__(sid, res), ctx.__setitem__("last_result", res) if res else None),
+        result_handler=lambda ctx, sid, res, lg: ctx["results"].__setitem__(sid, res) if res else None,
         done_fn=lambda ctx, lg: lg.info(f"执行完成, 共 {len(ctx['results'])} 个步骤有结果")
     ).execute(config_path)
 
