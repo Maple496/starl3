@@ -178,27 +178,15 @@
     },
     "ai_ops":{
       "chat":{
-        "url": "str — 可选，聊天接口URL，默认 'https://api.openai.com/v1/chat/completions'，也可替换为其他兼容OpenAI API的服务地址",
-        "apikey": "str — 可选，API密钥，默认从环境变量 OPENAI_API_KEY 读取",
-        "content": "str — 聊天内容，支持 {row_count} 占位符表示当前 DataFrame 行数，例如 '请分析以下数据，共 {row_count} 行'",
-        "model": "str — 可选，聊天模型名称，默认 'gpt-3.5-turbo'，常见取值: 'gpt-3.5-turbo', 'gpt-4', 'gpt-4-32k'",
-        "prompt": "str — 聊天提示语，支持 {row_count} 占位符表示当前 DataFrame 行数，例如 '请分析以下数据，共 {row_count} 行'",
-        "output_file": "str — 可选，聊天结果输出文件路径，相对于 base_dir，例如 'output/chat_result.txt'（目录不存在时自动创建），默认 ''（不输出文件）"
+        "url": "str — 必填，格式为 [url, apikey]，例如 ['https://api.example.com/v1/chat/completions']",
+        "apikey": "str — 必填，API密钥，例如 'sk-xxx'",
+        "model": "str — 可选，模型名称，默认 'gemini-3.1-flash-lite-preview'",
+        "prompt": "str — 可选，系统提示词，默认 '你是一个语音助手...'",
+        "content_key": "str|null — 可选，从 ctx 中读取该键作为用户消息内容；未设置时依次回退到 ctx['last_result'] → ctx['user_input']"
       },
-      "voicetostr":{
-        "url": "str — 可选，语音接口URL，默认 'https://api.openai.com/v1/audio/speech'，也可替换为其他兼容OpenAI API的服务地址",
-        "apikey": "str — 可选，API密钥，默认从环境变量 OPENAI_API_KEY 读取",
-        "file": "str — 语音输入文件路径，相对于 base_dir，例如 'data/input.wav'",
-        "model": "str — 可选，语音模型名称，默认 'whisper-1'，常见取值: 'whisper-1'",
-        "prompt": "str — 可选，语音识别提示语，例如 '请将以下语音内容转写为文本'",
-        "output_file": "str — 可选，语音识别结果输出文件路径，相对于 base_dir，例如 'output/voice_result.txt'（目录不存在时自动创建），默认 ''（不输出文件）"
+      "output":{
       },
-      "strtovoice":{
-        "url": "str — 可选，语音接口URL，默认 'https://api.openai.com/v1/audio/speech'，也可替换为其他兼容OpenAI API的服务地址",
-        "apikey": "str — 可选，API密钥，默认从环境变量 OPENAI_API_KEY 读取",
-        "text": "str — 要合成的文本内容，支持 {row_count} 占位符表示当前 DataFrame 行数，例如 '请将以下文本内容合成为语音，共 {row_count} 行'",
-        "model": "str — 可选，语音模型名称，默认 'whisper-1'，常见取值: 'whisper-1'",
-        "output_file": "str — 可选，语音合成结果输出文件路径，相对于 base_dir，例如 'output/speech_result.wav'（目录不存在时自动创建），默认 ''（不输出文件）"
+      "userinput":{
       }
     },
     "datavisual_ops":{

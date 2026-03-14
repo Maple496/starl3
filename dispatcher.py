@@ -12,6 +12,8 @@ def main():
         from file_ops import run
     elif name.startswith("attemper_ops"):
         from attemper_ops import run
+    elif name.startswith("ai_ops"):
+        from ai_ops import run
     else:
         print(f"未知的任务类型: {name}")
         return

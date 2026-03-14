@@ -14,6 +14,7 @@ log = logging.getLogger("scheduler")
 OPS_MODULE_MAP = {
     "elt": elt_ops,
     "file": file_ops,
+    "ai": ai_ops,
     # "attemper" 延迟注册
 }
 
