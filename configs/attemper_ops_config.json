@@ -10,10 +10,28 @@
   ],
   "rows": [
     [
-      "",
+      "11",
       "10",
-      "output",
-      "{\"file\":\"C:/Users/Administrator/Desktop/r.txt\",\"dest\":\"C:/Users/Administrator/Desktop/新建文件夹 (3)\"}",
+      "show_simpledialog",
+      "{\"hotkey\":\"F11\"}",
+      "Y",
+      "stop",
+      ""
+    ],
+    [
+      "22",
+      "13",
+      "chat",
+      "{\"apikey\":\"sk-sSC1DK9S6J8wfWHjWyowRWkWaANzi9tSD2xLi5FFKWXEYhkj\",\"model\":\"gemini-3.1-flash-lite-preview\"}",
+      "Y",
+      "stop",
+      ""
+    ],
+    [
+      "",
+      "14",
+      "goto",
+      "{\"target\":\"11\"}",
       "Y",
       "stop",
       ""

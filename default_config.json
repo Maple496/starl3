@@ -187,6 +187,13 @@
       "print_content":{
       },
       "userinput":{
+      },
+      "goto":{
+        "target": "str — 可选，输入目标Step ID 然后实现流程跳转"
+      },
+      "show_simpledialog":{
+        "content": "str — 可选，输入弹窗显示的文本，默认 '请输入内容'",
+        "hotkey": "str|null — 可选，用于唤起对话框的功能键，仅支持 F1~F12，例如 'F5'，默认 null（不绑定快捷键）"
       }
     },
     "datavisual_ops":{
