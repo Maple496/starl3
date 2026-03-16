@@ -49,7 +49,7 @@
       "打开音频文件",
       "16",
       "open_program",
-      "{\n  \"file\": \"output\\speech.mp3\"\n}",
+      "{\"file\":\"F:/starl3/output/speech.mp3\"}",
       "Y",
       "stop",
       ""

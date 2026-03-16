@@ -186,14 +186,22 @@
       },
       "print_content":{
       },
-      "userinput":{
-      },
       "goto":{
         "target": "str — 可选，输入目标Step ID 然后实现流程跳转"
       },
       "show_simpledialog":{
-        "content": "str — 可选，输入弹窗显示的文本，默认 '请输入内容'",
-        "hotkey": "str|null — 可选，用于唤起对话框的功能键，仅支持 F1~F12，例如 'F5'，默认 null（不绑定快捷键）"
+        "content": "str — 可选，输入弹窗显示的文本，默认 '请输入内容'"
+      },
+      "parse_readable_text":{
+        "text": "str — 可选，输入要解析的文本，默认 ctx['last_result']"
+      },
+      "text_to_speech": {
+        "text_key": "str — 可选，从上下文中读取文本内容的键名，例如 'text' 或 'content'，默认 'text'",
+        "output_path": "str — 可选，生成的语音文件保存路径，例如 'output/speech.mp3'，默认 'output/speech.mp3'",
+        "voice": "str — 可选，TTS语音角色名称，例如 'zh-CN-XiaoxiaoNeural'（中文女声）或 'zh-CN-YunxiNeural'（中文男声），默认 'zh-CN-XiaoxiaoNeural'"
+      },
+      "open_program": {
+        "file": "str — 可选，要打开的文件或程序路径"
       }
     },
     "datavisual_ops":{
