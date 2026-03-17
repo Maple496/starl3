@@ -149,19 +149,36 @@
       }
     },
     "file_ops": {
-      "copy": {
-        "file": "str — 源文件或目录路径，例如 'data/report.xlsx' 或 'C:/files/image.png'",
-        "dest": "str — 目标目录路径，文件将被复制到该目录下，例如 'backup/'，若目录不存在会自动创建"
-      },
-      "move": {
-        "file": "str — 源文件或目录路径，例如 'temp/output.csv'",
-        "dest": "str — 目标目录路径，文件将被移动到该目录下，例如 'archive/'，若目录不存在会自动创建"
-      },
-      "rename": {
-        "file": "str — 需要重命名的文件或目录路径，例如 'data/old_name.txt'",
-        "new_name": "str — 新的文件名（仅文件名，不含目录路径），例如 'new_name.txt'，文件将在原目录下重命名"
-      }
+  "scan_directory": {
+    "folder_path": "str — 要扫描的目录路径，例如 'C:/Users/files' 或 './documents'"
+  },
+  "filter_files": {
+    "conditions": {
+      "date": "dict|null — 可选，按修改时间过滤，格式 {'>'/'>=':'<'/'<='/'=': 'YYYYMMDDHHMMSS'}，例如 {'>': '20240101000000'}",
+      "size": "dict|null — 可选，按文件大小过滤（单位kb），格式 {'>': 100}，例如 {'>=': 50, '<': 1024}",
+      "name": "str|null — 可选，按文件名过滤，支持正则表达式，例如 '.*\\.txt$' 或 '^report'"
+    }
     },
+    "sort_files": {
+      "sort_by": "str — 可选，排序字段，可选值 'name'（文件名）/ 'size'（文件大小）/ 'date'（修改时间），默认 'name'",
+      "reverse": "bool — 可选，是否倒序排列，默认 false"
+    },
+    "batch_rename": {
+      "folder_path": "str|null — 可选，目标目录路径，默认使用上下文中的目录路径",
+      "prefix": "str — 可选，重命名前缀，文件将被命名为 '{prefix}_1.ext'、'{prefix}_2.ext'...，默认 'file'"
+    },
+    "batch_delete": {
+      "folder_path": "str|null — 可选，目标目录路径，默认使用上下文中的目录路径，文件调用 remove，目录调用 rmtree 递归删除"
+    },
+    "batch_move": {
+      "folder_path": "str|null — 可选，源目录路径，默认使用上下文中的目录路径",
+      "dest_path": "str — 目标目录路径，不存在时自动创建，例如 'D:/backup/moved'"
+    },
+    "batch_copy": {
+      "folder_path": "str|null — 可选，源目录路径，默认使用上下文中的目录路径",
+      "dest_path": "str — 目标目录路径，不存在时自动创建，文件使用 copy2，目录使用 copytree，例如 'D:/backup/copied'"
+    }
+  },
     "attemper_ops": {
       "run_py": {
         "file": "str — 要执行的目标文件路径，传递给对应ops模块的run函数，例如 'data/input.csv'"

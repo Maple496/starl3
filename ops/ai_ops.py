@@ -131,6 +131,7 @@ def parse_readable_text(ctx, params):
     ctx["last_result"] = result
     return result
 
+
 def open_program(ctx, params):
     path = params.get("file")
     if not path:
@@ -143,6 +144,7 @@ def open_program(ctx, params):
         subprocess.Popen(["xdg-open", path])
     return path
 
+
 OP_MAP = {
     "chat": chat,
     "print_content": print_content,
@@ -151,6 +153,7 @@ OP_MAP = {
     "text_to_speech": text_to_speech,
     "open_program": open_program,
 }
+
 
 def run(config_path=None):
     if not config_path:
@@ -162,5 +165,9 @@ def run(config_path=None):
         result_handler=lambda ctx, sid, res, lg: ctx["results"].__setitem__(sid, res) if res else None,
         done_fn=lambda ctx, lg: lg.info(f"执行完成, 共 {len(ctx['results'])} 个步骤有结果")
     ).execute(config_path)
+
+
 if __name__ == '__main__':
     run()
+
+
