@@ -2,9 +2,8 @@
 
 import os
 import pandas as pd, numpy as np
-from core.pipeline_engine import PipelineEngine, BASE_DIR
-
-
+from core.pipeline_engine import PipelineEngine
+from main_starl3 import BASE_DIR
 
 def op_read_excel(ctx, params):
     return pd.read_excel(os.path.join(ctx["base_dir"], params["file"]), sheet_name=params.get("sheet", 0), header=params.get("header_row", 1) - 1)

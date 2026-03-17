@@ -5,6 +5,7 @@
 import sys
 import os
 import importlib
+BASE_DIR = os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__))
 OPS_MAP = {
     "elt_ops":      "ops.elt_ops",
     "file_ops":     "ops.file_ops",

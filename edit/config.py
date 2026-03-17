@@ -4,8 +4,8 @@ PROFILES = {
     "quickELT": {
         "title": "JSON Config Editor",
         "config_path": "configs/attemper_ops_config.json",
-        "exe": r"F:\starl3\main.exe",
-        "py": r"F:\starl3\main.py",
+        "exe": r"F:\starl3\main_starl3.exe",
+        "py": r"F:\starl3\main_starl3.py",
         "python_exe": r".venv\Scripts\python.exe",
         "run_args": lambda t, p: [t],
         "columns": [
