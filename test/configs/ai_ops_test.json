@@ -1,0 +1,40 @@
+{
+  "cols": [
+    "step_id",
+    "step_order",
+    "op_type",
+    "params_json",
+    "enabled",
+    "on_error",
+    "note"
+  ],
+  "rows": [
+    [
+      "1",
+      "1",
+      "show_simpledialog",
+      "{}",
+      "Y",
+      "stop",
+      ""
+    ],
+    [
+      "2",
+      "2",
+      "chat",
+      "{\"url\":\"http://47.107.59.230:5000/v1/chat/completions\",\"apikey\":\"1224a23264\"}",
+      "Y",
+      "stop",
+      ""
+    ],
+    [
+      "3",
+      "3",
+      "goto",
+      "{\"target\":\"1\"}",
+      "Y",
+      "stop",
+      ""
+    ]
+  ]
+}

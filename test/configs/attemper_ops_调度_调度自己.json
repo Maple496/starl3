@@ -1,0 +1,31 @@
+{
+  "cols": [
+    "step_id",
+    "step_order",
+    "op_type",
+    "params_json",
+    "enabled",
+    "on_error",
+    "note"
+  ],
+  "rows": [
+    [
+      "调度自己测试",
+      "10",
+      "run_py",
+      "{\"file\":\"F:/starl3/configs/attemper_ops_调度两次elt.json\"}",
+      "Y",
+      "stop",
+      ""
+    ],
+    [
+      "调度自己测试2",
+      "20",
+      "run_py",
+      "{\"file\":\"F:/starl3/configs/attemper_ops_调度两次elt.json\"}",
+      "Y",
+      "stop",
+      ""
+    ]
+  ]
+}
