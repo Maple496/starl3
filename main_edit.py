@@ -38,26 +38,35 @@ class ConfigHandler(SimpleHTTPRequestHandler):
 
         elif path == '/api/save':
             fp = body.get('path', RUN_SETTINGS["config_path"])
+            data = utils.clean_data(body['data'])
+            # 转换所有行中的反斜杠路径
+            for row in data.get('rows', []):
+                for i, val in enumerate(row):
+                    if isinstance(val, str) and ':\\' in val:
+                        row[i] = val.replace('\\', '/')
             with open(fp, 'w', encoding='utf-8') as f:
-                json.dump(utils.clean_data(body['data']), f, ensure_ascii=False, indent=2)
+                json.dump(data, f, ensure_ascii=False, indent=2)
             resp = {"ok": 1}
 
         elif path == '/api/settings':
             for k in RUN_SETTINGS:
-                if k in body.get('settings', {}): RUN_SETTINGS[k] = body['settings'][k]
+                if k in body.get('settings', {}):
+                    val = body['settings'][k]
+                    if k in ['config_path', 'exe', 'py', 'python_exe'] and isinstance(val, str):
+                        val = val.replace('\\', '/')
+                    RUN_SETTINGS[k] = val
             resp = {"ok": 1}
 
         elif path == '/api/browse':
             init = body.get('initial', '')
             if init and not os.path.isabs(init): init = os.path.join(BASE_DIR, init)
             if init and not os.path.exists(init): init = BASE_DIR
-            resp = {"path": utils.browse_path(body.get('mode', 'file'), init)}
-
+            resp = {"path": utils.browse_path(body.get('mode', 'file'), init).replace('\\', '/')}
         elif path == '/api/browse_save':
             init = body.get('initial', '')
             if init and not os.path.isabs(init): init = os.path.join(BASE_DIR, init)
             if init and not os.path.exists(os.path.dirname(init) if init else ''): init = BASE_DIR
-            resp = {"path": utils.browse_path('save_json', os.path.dirname(init) if init else BASE_DIR)}
+            resp = {"path": utils.browse_path('save_json', os.path.dirname(init) if init else BASE_DIR).replace('\\', '/')}
 
         elif path == '/api/genbat':
             d = body.get('dir', '').strip()

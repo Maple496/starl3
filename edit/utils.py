@@ -25,7 +25,7 @@ def clean_data(d):
         for i in range(len(r)):
             if i in JSON_COLS:
                 continue
-            if isinstance(r[i], str) and '://' not in r[i]:
+            if isinstance(r[i], str):
                 r[i] = r[i].replace('\\', '/')
     return d
 
@@ -41,8 +41,14 @@ def ensure_config_exists():
         cp = os.path.join(BASE_DIR, cp)
     if not os.path.exists(cp):
         os.makedirs(os.path.dirname(cp), exist_ok=True)
+        default_rows = ACTIVE_PROFILE["default_rows"]
+        # 转换所有路径中的反斜杠为正斜杠
+        for row in default_rows:
+            for i, val in enumerate(row):
+                if isinstance(val, str) and ':\\' in val:
+                    row[i] = val.replace('\\', '/')
         with open(cp, 'w', encoding='utf-8') as f:
-            json.dump({"cols": COL_NAMES, "rows": ACTIVE_PROFILE["default_rows"]}, f, ensure_ascii=False, indent=2)
+            json.dump({"cols": COL_NAMES, "rows": default_rows}, f, ensure_ascii=False, indent=2)
 
 def get_run_cmd():
     exe_path = os.path.join(BASE_DIR, RUN_SETTINGS["exe"])
@@ -74,4 +80,4 @@ def browse_path(mode, initial_dir=""):
     }
     res = func_map.get(mode, lambda: "")()
     root.destroy()
-    return res or ""
+    return res.replace('\\', '/') if res else ""

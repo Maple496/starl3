@@ -1,0 +1,40 @@
+{
+  "cols": [
+    "step_id",
+    "step_order",
+    "op_type",
+    "params_json",
+    "enabled",
+    "on_error",
+    "note"
+  ],
+  "rows": [
+    [
+      "1",
+      "10",
+      "scan_directory",
+      "{\"folder_path\":\"F:/starl3/configs\"}",
+      "Y",
+      "stop",
+      ""
+    ],
+    [
+      "223",
+      "11",
+      "filter_files",
+      "{\"conditions\":[{\"field\":\"modify_time\",\"operator\":\"~\",\"value\":\"2026$\"}]}",
+      "Y",
+      "stop",
+      ""
+    ],
+    [
+      "3",
+      "100",
+      "batch_copy",
+      "{\"dest_path\":\"C:/Users/Administrator/Desktop/采购工作站/新建文件夹\"}",
+      "Y",
+      "stop",
+      ""
+    ]
+  ]
+}

@@ -149,36 +149,39 @@
       }
     },
     "file_ops": {
-  "scan_directory": {
-    "folder_path": "str — 要扫描的目录路径，例如 'C:/Users/files' 或 './documents'"
-  },
-  "filter_files": {
-    "conditions": {
-      "date": "dict|null — 可选，按修改时间过滤，格式 {'>'/'>=':'<'/'<='/'=': 'YYYYMMDDHHMMSS'}，例如 {'>': '20240101000000'}",
-      "size": "dict|null — 可选，按文件大小过滤（单位kb），格式 {'>': 100}，例如 {'>=': 50, '<': 1024}",
-      "name": "str|null — 可选，按文件名过滤，支持正则表达式，例如 '.*\\.txt$' 或 '^report'"
-    }
+      "scan_directory": {
+          "folder_path": "str — 要扫描的目录路径，例如 'D:/workspace/images'"
+        },
+        "filter_files": {
+          "source_step": "str|null — 可选，指定从哪个 step_id 的结果中读取数据，默认 null（读取上一步结果）",
+          "conditions": "list — 过滤条件列表，每个条件为一个对象，包含以下字段：",
+          "conditions[].field": "str — 匹配字段，可选值：'name'(文件名), 'ext'(扩展名), 'modify_time'(修改时间戳), 'size'(文件大小KB), 'type'(类型: 'file'|'folder')",
+          "conditions[].operator": "str — 比较运算符，可选值：'~'(正则匹配), '=='或'='(等于), '>'(大于), '<'(小于)",
+          "conditions[].value": "str|number — 匹配值，例如 'jpg'、1024、'^report'(正则)；modify_time 字段支持相对时间写法如 'now-3600'(一小时前)"
+        },
+        "batch_rename": {
+          "source_step": "str|null — 可选，指定从哪个 step_id 的结果中读取数据，默认 null（读取上一步结果）",
+          "prefix": "str — 可选，重命名前缀，文件将被命名为 '{prefix}_1.ext', '{prefix}_2.ext' ...，默认 'file'"
+        },
+        "batch_copy": {
+          "source_step": "str|null — 可选，指定从哪个 step_id 的结果中读取数据，默认 null（读取上一步结果）",
+          "dest_path": "str — 目标目录路径，例如 'D:/backup/images'，目录不存在时自动创建"
+        },
+        "batch_delete": {
+          "source_step": "str|null — 可选，指定从哪个 step_id 的结果中读取数据，默认 null（读取上一步结果）"
+        },
+        "print_result": {
+          "source_step": "str|null — 可选，指定从哪个 step_id 的结果中读取数据，默认 null（读取上一步结果）",
+          "content": "any|null — 可选，直接指定要打印的内容，优先级高于 source_step，默认 null"
+        },
+        "open_program": {
+          "source_step": "str|null — 可选，指定从哪个 step_id 的结果中读取数据，默认 null（读取上一步结果）",
+          "path": "str|null — 可选，要打开的文件或文件夹路径，默认 null（自动使用上一步结果中的 base_path）；跨平台调用系统默认程序打开"
+        },
+        "print":{
+          "content":"str — 可选，要打印的内容，默认 ctx['last_result']"
+        }
     },
-    "sort_files": {
-      "sort_by": "str — 可选，排序字段，可选值 'name'（文件名）/ 'size'（文件大小）/ 'date'（修改时间），默认 'name'",
-      "reverse": "bool — 可选，是否倒序排列，默认 false"
-    },
-    "batch_rename": {
-      "folder_path": "str|null — 可选，目标目录路径，默认使用上下文中的目录路径",
-      "prefix": "str — 可选，重命名前缀，文件将被命名为 '{prefix}_1.ext'、'{prefix}_2.ext'...，默认 'file'"
-    },
-    "batch_delete": {
-      "folder_path": "str|null — 可选，目标目录路径，默认使用上下文中的目录路径，文件调用 remove，目录调用 rmtree 递归删除"
-    },
-    "batch_move": {
-      "folder_path": "str|null — 可选，源目录路径，默认使用上下文中的目录路径",
-      "dest_path": "str — 目标目录路径，不存在时自动创建，例如 'D:/backup/moved'"
-    },
-    "batch_copy": {
-      "folder_path": "str|null — 可选，源目录路径，默认使用上下文中的目录路径",
-      "dest_path": "str — 目标目录路径，不存在时自动创建，文件使用 copy2，目录使用 copytree，例如 'D:/backup/copied'"
-    }
-  },
     "attemper_ops": {
       "run_py": {
         "file": "str — 要执行的目标文件路径，传递给对应ops模块的run函数，例如 'data/input.csv'"

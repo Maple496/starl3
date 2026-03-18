@@ -1,3 +1,4 @@
+#pipeline_engine.py
 import re, json, os, time
 
 class PipelineEngine:
@@ -21,7 +22,9 @@ class PipelineEngine:
         ops = {
             "end": lambda *_: -1,
             "goto": lambda C, p, S, i: next((j for j, x in enumerate(S) if x["step_id"] == p["target"]), -1),
-            "condition": lambda C, p, S, i: next((j for j, x in enumerate(S) if x["step_id"] == (p["then"] if eval(p["check"], s.e(C) if s.e else {}) else p["else"])), -1)
+            "condition": lambda C, p, S, i: next((j for j, x in enumerate(S) if x["step_id"] == (p["then"] if eval(p["check"], s.e(C) if s.e else {}) else p["else"])), -1),
+            "print": lambda C, p, S, i: (print(json.dumps(C.get(p.get("key", "last_result"), C), ensure_ascii=False, indent=2)) or i+1)
+
         }
         i = 0
         while 0 <= i < len(S):

@@ -1,181 +1,249 @@
-from core.pipeline_engine import PipelineEngine
-import os
-import re
-import shutil
+import os, re, shutil, platform, subprocess
 from pathlib import Path
+from core.pipeline_engine import PipelineEngine
+import time
+import json
 from datetime import datetime
+# ==========================================
+# 辅助工具函数
+# ==========================================
+
+def _get_input_data(ctx, params):
+    """
+    统一的数据提取层：
+    优先读取 param 指定的 step_id 的结果，如果没有指定，则读取上一步的 last_result
+    """
+    source_step = params.get("source_step")
+    if source_step:
+        # PipelineEngine 会自动把结果存放在 ctx["results"][step_id]
+        return ctx.get("results", {}).get(source_step, {})
+    return ctx.get("last_result", {})
+
+
+def _match(name, info, conditions):
+    """匹配过滤条件的内部核心逻辑"""
+    now = time.time()
+    for cond in conditions:
+        field = cond.get("field")
+        operator = cond.get("operator")
+        value = cond.get("value")
+        
+        field_value = {
+            "name": name,
+            "ext": info.get("extension", ""),
+            "modify_time": info.get("modify_time", ""),
+            "size": info.get("file_size", 0),
+            "type": info.get("type", "")
+        }.get(field)
+        
+        if field_value is None:
+            continue
+        
+        matched = False
+        
+        # 正则匹配：直接用字符串形式
+        if operator == "~":
+            if re.search(str(value), str(field_value)):
+                matched = True
+        
+        # 数值比较：需要转换为时间戳
+        elif operator in (">", "<", ">=", "<=", "==", "="):
+            # 如果是 modify_time 字段，需要转换为时间戳再比较
+            if field == "modify_time":
+                from datetime import datetime
+                
+                # 转换 field_value（字符串）为时间戳
+                try:
+                    field_ts = datetime.strptime(field_value, "%Y-%m-%d %H:%M:%S").timestamp()
+                except:
+                    continue
+                
+                # 转换 value 为时间戳
+                if isinstance(value, str) and value.startswith("now"):
+                    # 处理 "now+1000" 或 "now-3600" 格式
+                    if "+" in value:
+                        offset = int(value.split("+")[1])
+                        value_ts = now + offset
+                    elif "-" in value and value.index("-") > 0:
+                        offset = int(value.split("-", 1)[1])
+                        value_ts = now - offset
+                    else:
+                        value_ts = now
+                else:
+                    # 直接是时间戳数字
+                    value_ts = float(value)
+                
+                # 比较时间戳
+                if operator == ">" and field_ts > value_ts: matched = True
+                elif operator == "<" and field_ts < value_ts: matched = True
+                elif operator == ">=" and field_ts >= value_ts: matched = True
+                elif operator == "<=" and field_ts <= value_ts: matched = True
+                elif operator in ("==", "=") and field_ts == value_ts: matched = True
+            else:
+                # 其他字段的数值比较
+                if operator == ">" and field_value > value: matched = True
+                elif operator == "<" and field_value < value: matched = True
+                elif operator == ">=" and field_value >= value: matched = True
+                elif operator == "<=" and field_value <= value: matched = True
+                elif operator in ("==", "=") and field_value == value: matched = True
+        
+        if not matched:
+            return False
+            
+    return True
+
+
+# ==========================================
+# 管道操作函数 (Pipeline Steps)
+# ==========================================
 
 def scan_directory(ctx, params):
     folder_path = params.get("folder_path")
-    result = {folder_path: {}}
-    
+    items_data = {}
     for item in os.listdir(folder_path):
         item_path = os.path.join(folder_path, item)
         stat = os.stat(item_path)
-        mod_time = datetime.fromtimestamp(stat.st_mtime).strftime("%Y%m%d%H%M%S")
-        
+        mod_time = stat.st_mtime
+        mod_time_str = datetime.fromtimestamp(mod_time).strftime("%Y-%m-%d %H:%M:%S")
         if os.path.isfile(item_path):
-            size_kb = stat.st_size / 1024
-            ext = Path(item).suffix[1:] if Path(item).suffix else ""
-            result[folder_path][item] = {
-                "file_size": f"{size_kb:.2f}kb",
-                "modify_time": mod_time,
-                "extension": ext
-            }
+            items_data[item] = {"file_size": stat.st_size / 1024, "modify_time": mod_time_str, "extension": Path(item).suffix[1:], "type": "file"}
         else:
-            file_count = len(os.listdir(item_path))
-            result[folder_path][item] = {
-                "folder_size": f"{stat.st_size / 1024:.2f}kb",
-                "modify_time": mod_time,
-                "file_count": file_count
-            }
-    
-    ctx["file_list"] = result
+            items_data[item] = {"modify_time": mod_time_str, "type": "folder"}
+            
+    # 标准化返回结构：包含基准路径和文件列表字典
+    result = {"base_path": folder_path, "items": items_data}
+    ctx["last_result"] = result
     return result
 
+
 def filter_files(ctx, params):
-    file_list = ctx.get("file_list", {})
-    conditions = params.get("conditions", {})
+    # 动态获取输入：当前结果 or 指定 step_id 的结果
+    data = _get_input_data(ctx, params)
+    base_path = data.get("base_path", "")
+    items = data.get("items", {})
     
-    folder_path = list(file_list.keys())[0]
-    items = file_list[folder_path]
-    filtered = {k: v for k, v in items.items() if _match_conditions(k, v, conditions)}
+    conditions = params.get("conditions", [])
+    filtered_items = {k: v for k, v in items.items() if _match(k, v, conditions)}
     
-    ctx["filtered_list"] = filtered
-    return filtered
+    result = {"base_path": base_path, "items": filtered_items}
+    ctx["last_result"] = result
+    return result
 
-def _match_conditions(name, info, conditions):
-    for key, value in conditions.items():
-        if key == "date":
-            if not _compare_value(info.get("modify_time", ""), value):
-                return False
-        elif key == "size":
-            size_num = float(info.get("file_size", "0kb").replace("kb", ""))
-            if not _compare_value(size_num, value):
-                return False
-        elif key == "name":
-            if not re.search(value, name):
-                return False
-    return True
-
-def _compare_value(actual, condition):
-    if isinstance(condition, dict):
-        for op, val in condition.items():
-            if op == ">" and actual > val: return True
-            elif op == ">=" and actual >= val: return True
-            elif op == "<" and actual < val: return True
-            elif op == "<=" and actual <= val: return True
-            elif op == "=" and actual == val: return True
-    return False
-
-def sort_files(ctx, params):
-    file_list = ctx.get("filtered_list") or ctx.get("file_list", {})
-    sort_by = params.get("sort_by", "name")
-    reverse = params.get("reverse", False)
-    
-    folder_path = list(file_list.keys())[0]
-    items = file_list[folder_path]
-    
-    if sort_by == "name":
-        sorted_items = sorted(items.items(), key=lambda x: x[0], reverse=reverse)
-    elif sort_by == "size":
-        sorted_items = sorted(items.items(), key=lambda x: float(x[1].get("file_size", "0kb").replace("kb", "")), reverse=reverse)
-    elif sort_by == "date":
-        sorted_items = sorted(items.items(), key=lambda x: x[1].get("modify_time", ""), reverse=reverse)
-    else:
-        sorted_items = list(items.items())
-    
-    ctx["sorted_list"] = {k: v for k, v in sorted_items}
-    return ctx["sorted_list"]
-
-def batch_rename(ctx, params):
-    file_list = ctx.get("sorted_list") or ctx.get("filtered_list") or ctx.get("file_list", {})
-    folder_path = params.get("folder_path")
-    prefix = params.get("prefix", "file")
-    
-    folder_path = folder_path or list(file_list.keys())[0]
-    items = file_list[folder_path]
-    
-    results = {}
-    for idx, (name, info) in enumerate(items.items(), 1):
-        old_path = os.path.join(folder_path, name)
-        ext = info.get("extension", "")
-        new_name = f"{prefix}_{idx}.{ext}" if ext else f"{prefix}_{idx}"
-        new_path = os.path.join(folder_path, new_name)
-        os.rename(old_path, new_path)
-        results[name] = new_name
-    
-    ctx["rename_results"] = results
-    return results
 
 def batch_delete(ctx, params):
-    file_list = ctx.get("sorted_list") or ctx.get("filtered_list") or ctx.get("file_list", {})
-    folder_path = params.get("folder_path") or list(file_list.keys())[0]
-    items = file_list[folder_path]
-    
-    deleted = []
-    for name in items.keys():
-        path = os.path.join(folder_path, name)
-        if os.path.isfile(path):
-            os.remove(path)
-        else:
-            shutil.rmtree(path)
-        deleted.append(name)
-    
-    ctx["delete_results"] = deleted
-    return deleted
+    data = _get_input_data(ctx, params)
+    base_path = data.get("base_path", "")
+    items = data.get("items", {})
 
-def batch_move(ctx, params):
-    file_list = ctx.get("sorted_list") or ctx.get("filtered_list") or ctx.get("file_list", {})
-    folder_path = params.get("folder_path") or list(file_list.keys())[0]
-    dest_path = params.get("dest_path")
-    items = file_list[folder_path]
+    results_info = {}
+    for name, info in items.items():
+        path = os.path.join(base_path, name)
+        if os.path.exists(path):
+            if info.get("type") == "folder": shutil.rmtree(path)
+            else: os.remove(path)
+            results_info[name] = "deleted"
+            
+    result = {"base_path": base_path, "items": results_info}
+    ctx["last_result"] = result
+    return result
+
+
+def batch_rename(ctx, params):
+    data = _get_input_data(ctx, params)
+    base_path = data.get("base_path", "")
+    items = data.get("items", {})
+    prefix = params.get("prefix", "file")
     
-    os.makedirs(dest_path, exist_ok=True)
-    moved = {}
-    for name in items.keys():
-        src = os.path.join(folder_path, name)
-        dst = os.path.join(dest_path, name)
-        shutil.move(src, dst)
-        moved[name] = dst
+    new_items = {}
+    for i, (old_name, info) in enumerate(items.items(), 1):
+        ext = f".{info.get('extension')}" if info.get("extension") else ""
+        new_name = f"{prefix}_{i}{ext}"
+        
+        old_path = os.path.join(base_path, old_name)
+        new_path = os.path.join(base_path, new_name)
+        
+        counter = 1
+        while os.path.exists(new_path):
+            new_name = f"{prefix}_{i}_{counter}{ext}"
+            new_path = os.path.join(base_path, new_name)
+            counter += 1
+            
+        os.rename(old_path, new_path)
+        # 更新新文件对应的 info (重命名后只变了名字，属性保留)
+        new_items[new_name] = info
     
-    ctx["move_results"] = moved
-    return moved
+    result = {"base_path": base_path, "items": new_items}
+    ctx["last_result"] = result
+    return result
+
 
 def batch_copy(ctx, params):
-    file_list = ctx.get("sorted_list") or ctx.get("filtered_list") or ctx.get("file_list", {})
-    folder_path = params.get("folder_path") or list(file_list.keys())[0]
+    data = _get_input_data(ctx, params)
+    base_path = data.get("base_path", "")
+    items = data.get("items", {})
     dest_path = params.get("dest_path")
-    items = file_list[folder_path]
     
     os.makedirs(dest_path, exist_ok=True)
-    copied = {}
-    for name in items.keys():
-        src = os.path.join(folder_path, name)
-        dst = os.path.join(dest_path, name)
-        if os.path.isfile(src):
-            shutil.copy2(src, dst)
-        else:
-            shutil.copytree(src, dst, dirs_exist_ok=True)
-        copied[name] = dst
+    copied_items = {}
     
-    ctx["copy_results"] = copied
-    return copied
+    for name, info in items.items():
+        src = os.path.join(base_path, name)
+        dst = os.path.join(dest_path, name)
+        if info.get("type") == "folder":
+            shutil.copytree(src, dst, dirs_exist_ok=True)
+        else:
+            shutil.copy2(src, dst)
+        copied_items[name] = info # 写入新状态
+        
+    # 注意：复制完成后，上下文的 target 变成了 dest_path
+    result = {"base_path": dest_path, "items": copied_items}
+    ctx["last_result"] = result
+    return result
+
+
+def print_result(ctx, params):
+    data = params.get("content") or _get_input_data(ctx, params)
+    print(">>> [Pipeline Step Result]:")
+    print(json.dumps(data, indent=2, ensure_ascii=False))
+    return data
+
+
+def open_program(ctx, params):
+    data = _get_input_data(ctx, params)
+    
+    # 允许显式指定路径，如果不指定，默认打开最后操作所在的文件夹(或者文件)
+    path = params.get("path")
+    if not path:
+        path = data.get("base_path") if isinstance(data, dict) else str(data)
+
+    if not path or not os.path.exists(path):
+        return {"error": f"Path not found: {path}"}
+
+    if platform.system() == "Windows": os.startfile(path)
+    elif platform.system() == "Darwin": subprocess.Popen(["open", path])
+    else: subprocess.Popen(["xdg-open", path])
+    
+    return path
+
+
+# ==========================================
+# 执行注册入口
+# ==========================================
 
 OP_MAP = {
     "scan_directory": scan_directory,
     "filter_files": filter_files,
-    "sort_files": sort_files,
     "batch_rename": batch_rename,
-    "batch_delete": batch_delete,
-    "batch_move": batch_move,
     "batch_copy": batch_copy,
+    "batch_delete": batch_delete,
+    "print_result": print_result, # 注意：避免和引擎内置的 'print' 关键字冲突，起名为 print_result
+    "open_program": open_program
 }
 
 def run(config_path=None):
     PipelineEngine(
         OP_MAP,
-        init_ctx=lambda: {},
+        init_ctx=lambda: {"last_result": None, "results": {}}, 
         done_fn=lambda ctx, lg: lg.info("执行完成")
     ).execute(config_path)
 
