@@ -81,22 +81,9 @@ def _match(name, info, conditions):
             
     return True
 
-
 # ==========================================
 # 管道操作函数 (Pipeline Steps)
 # ==========================================
-
-def load_step_result(ctx, params):
-    """提取指定 step_id 的结果，覆盖到当前的 last_result 中，用于重置数据流"""
-    step_id = params.get("step_id")
-    if step_id and step_id in ctx.get("results", {}):
-        result = ctx["results"][step_id]
-    else:
-        result = ctx.get("last_result", {})
-        
-    ctx["last_result"] = result
-    return result
-
 
 def scan_directory(ctx, params):
     folder_path = params.get("folder_path")
@@ -116,7 +103,6 @@ def scan_directory(ctx, params):
     ctx["last_result"] = result
     return result
 
-
 def filter_files(ctx, params):
     data = ctx.get("last_result", {})
     base_path = data.get("base_path", "")
@@ -128,7 +114,6 @@ def filter_files(ctx, params):
     result = {"base_path": base_path, "items": filtered_items}
     ctx["last_result"] = result
     return result
-
 
 def batch_delete(ctx, params):
     data = ctx.get("last_result", {})
@@ -146,7 +131,6 @@ def batch_delete(ctx, params):
     result = {"base_path": base_path, "items": results_info}
     ctx["last_result"] = result
     return result
-
 
 def batch_rename(ctx, params):
     data = ctx.get("last_result", {})
@@ -176,7 +160,6 @@ def batch_rename(ctx, params):
     ctx["last_result"] = result
     return result
 
-
 def limit_items(ctx, params):
     data = ctx.get("last_result", {})
     base_path = data.get("base_path", "")
@@ -187,7 +170,6 @@ def limit_items(ctx, params):
     result = {"base_path": base_path, "items": limited}
     ctx["last_result"] = result
     return result
-
 
 def batch_copy(ctx, params):
     data = ctx.get("last_result", {})
@@ -212,13 +194,11 @@ def batch_copy(ctx, params):
     ctx["last_result"] = result
     return result
 
-
 def print_result(ctx, params):
     data = params.get("content") or ctx.get("last_result", {})
     print(">>> [Pipeline Step Result]:")
     print(json.dumps(data, indent=2, ensure_ascii=False))
     return data
-
 
 def open_program(ctx, params):
     data = ctx.get("last_result", {})
@@ -237,13 +217,11 @@ def open_program(ctx, params):
     
     return path
 
-
 # ==========================================
 # 执行注册入口
 # ==========================================
 
 OP_MAP = {
-    "load_step_result": load_step_result,
     "scan_directory": scan_directory,
     "filter_files": filter_files,
     "batch_rename": batch_rename,

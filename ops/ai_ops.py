@@ -11,16 +11,7 @@ import subprocess
 # ==========================================
 # 辅助与流程控制函数
 # ==========================================
-def load_step_result(ctx, params):
-    """提取指定 step_id 的结果，覆盖到当前的 last_result 中，用于重置数据流"""
-    step_id = params.get("step_id")
-    if step_id and step_id in ctx.get("results", {}):
-        result = ctx["results"][step_id]
-    else:
-        result = ctx.get("last_result", "")
-        
-    ctx["last_result"] = result
-    return result
+
 # ==========================================
 # 管道操作函数 (Pipeline Steps)
 # ==========================================
@@ -171,7 +162,6 @@ def open_program(ctx, params):
 # 执行注册入口
 # ==========================================
 OP_MAP = {
-    "load_step_result": load_step_result,
     "chat": chat,
     "print_content": print_content,
     "show_simpledialog": show_simpledialog,   

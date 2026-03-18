@@ -1,3 +1,4 @@
+# config.py
 import json, os, sys
 
 PROFILES = {
@@ -14,10 +15,9 @@ PROFILES = {
             {"name": "op_type", "dtype": "str", "width": "90px", "label": "Op Type", "hidden": False, "default": "log"},
             {"name": "params_json", "dtype": "json", "width": "auto", "label": "Params JSON", "hidden": False, "default": "{}"},
             {"name": "enabled", "dtype": "enum", "width": "60px", "label": "Enabled", "hidden": True, "default": "Y", "enum_values": ["Y", "N"]},
-            {"name": "on_error", "dtype": "str", "width": "80px", "label": "On Error", "hidden": False, "default": "stop"},
             {"name": "note", "dtype": "str", "width": "150px", "label": "Note", "hidden": False, "default": ""}
         ],
-        "default_rows": [["", "10", "log", "{}", "Y", "stop", ""]],
+        "default_rows": [["", "10", "log", "{}", "Y", ""]],
         "sort_col": "step_order",
         "toggle_col": "enabled"
     }

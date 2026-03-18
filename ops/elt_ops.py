@@ -7,16 +7,6 @@ from main_starl3 import BASE_DIR
 # 管道操作函数 (Pipeline Steps)
 # ==========================================
 
-def op_load_step_result(ctx, params):
-    """提取指定 step_id 的结果，覆盖到当前的 df 数据流中"""
-    step_id = params.get("step_id")
-    if step_id and step_id in ctx.get("results", {}):
-        df = ctx["results"][step_id].copy()
-    else:
-        df = ctx.get("df").copy() if ctx.get("df") is not None else None
-    
-    ctx["df"] = df
-    return df
 
 def op_read_excel(ctx, params):
     return pd.read_excel(os.path.join(ctx["base_dir"], params["file"]), sheet_name=params.get("sheet", 0), header=params.get("header_row", 1) - 1)
@@ -150,7 +140,6 @@ def op_head_tail(ctx, params):
 # ==========================================
 
 OP_MAP = {
-    "load_step_result": op_load_step_result,
     "read_excel": op_read_excel, "read_csv": op_read_csv, "filter": op_filter,
     "sort": op_sort, "rename": op_rename, "select": op_select, "drop": op_drop,
     "fill_null": op_fill_null, "calc": op_calc, "group": op_group, "join": op_join,

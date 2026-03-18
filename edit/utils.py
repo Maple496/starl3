@@ -1,8 +1,7 @@
-#utils.py
+# utils.py
 import json, os, re
 from tkinter import Tk, filedialog
-from .config import ACTIVE_PROFILE, RUN_SETTINGS, BASE_DIR, COL_NAMES, JSON_COLS
-
+from .config import ACTIVE_PROFILE, RUN_SETTINGS, BASE_DIR, JSON_COLS
 
 def fix_json_str(s):
     if not isinstance(s, str): return s
@@ -17,38 +16,27 @@ def fix_json_str(s):
     return s.strip()
 
 def clean_data(d):
-    d.pop("idx", None)
-    for r in d.get('rows', []):
+    rows = d.get('rows', []) if isinstance(d, dict) else d
+    for r in rows:
         for i in JSON_COLS:
-            if i < len(r):
-                r[i] = json.dumps(r[i], ensure_ascii=False, separators=(',', ':')) if isinstance(r[i], dict) else fix_json_str(r[i])
+            if i < len(r): r[i] = json.dumps(r[i], ensure_ascii=False, separators=(',', ':')) if isinstance(r[i], dict) else fix_json_str(r[i])
         for i in range(len(r)):
-            if i in JSON_COLS:
-                continue
-            if isinstance(r[i], str):
-                r[i] = r[i].replace('\\', '/')
-    return d
+            if i not in JSON_COLS and isinstance(r[i], str): r[i] = r[i].replace('\\', '/')
+    return rows
 
 def load_file(path):
     with open(path, 'r', encoding='utf-8') as f:
         d = json.load(f)
-    d.pop("idx", None)
-    return d
+    return {"rows": d.get("rows", d) if isinstance(d, dict) else d}
 
 def ensure_config_exists():
     cp = RUN_SETTINGS["config_path"]
-    if not os.path.isabs(cp):
-        cp = os.path.join(BASE_DIR, cp)
+    if not os.path.isabs(cp): cp = os.path.join(BASE_DIR, cp)
     if not os.path.exists(cp):
         os.makedirs(os.path.dirname(cp), exist_ok=True)
-        default_rows = ACTIVE_PROFILE["default_rows"]
-        # 转换所有路径中的反斜杠为正斜杠
-        for row in default_rows:
-            for i, val in enumerate(row):
-                if isinstance(val, str) and ':\\' in val:
-                    row[i] = val.replace('\\', '/')
+        default_rows = [ [v.replace('\\', '/') if isinstance(v, str) else v for v in r] for r in ACTIVE_PROFILE["default_rows"] ]
         with open(cp, 'w', encoding='utf-8') as f:
-            json.dump({"cols": COL_NAMES, "rows": default_rows}, f, ensure_ascii=False, indent=2)
+            json.dump(default_rows, f, ensure_ascii=False, indent=2)
 
 def get_run_cmd():
     exe_path = os.path.join(BASE_DIR, RUN_SETTINGS["exe"])

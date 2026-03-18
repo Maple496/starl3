@@ -1,30 +1,28 @@
-#pipeline_engine.py
+# pipeline_engine.py
 import re, json, os, time
-
 class PipelineEngine:
     class _L:
         def __init__(s, e): s.e = e
         def __getattr__(s, _): return s.info
         def info(s, m): print(f'{{"time":"{int(time.time()-s.e._t0)}","name":"{s.e._name}","msg":"{m}"}}')
-
     def __init__(s, m, **k): 
         s.m, s.i, s.e, s.r, s.d = m, k.get('init_ctx'), k.get('eval_vars_fn'), k.get('result_handler'), k.get('done_fn')
         s._name, s._t0, s.l = "", 0, s._L(s)
-
     def parse_pipeline(s, p):
         c = json.load(open(p, encoding='utf-8'))
-        S = [dict(zip(c["cols"], r)) for r in c["rows"]]
+        c = c.get("rows", c) if isinstance(c, dict) else c  # 兼容旧的 {"rows":[]} 和新的纯列表 [] 格式
+        cols = ["step_id", "step_order", "op_type", "params_json", "enabled", "note"]
+        S = [dict(zip(cols, r)) for r in c]
         for o in S: o["params_json"] = json.loads(o["params_json"]) if isinstance(o.get("params_json"), str) else o.get("params_json", {})
         S.sort(key=lambda x: int(m.group()) if (m:=re.match(r'\d+', str(x.get('step_order','0')))) else 0)
         return S
-
     def run(s, S, C):
         ops = {
             "end": lambda *_: -1,
             "goto": lambda C, p, S, i: next((j for j, x in enumerate(S) if x["step_id"] == p["target"]), -1),
             "condition": lambda C, p, S, i: next((j for j, x in enumerate(S) if x["step_id"] == (p["then"] if eval(p["check"], s.e(C) if s.e else {}) else p["else"])), -1),
-            "print": lambda C, p, S, i: (print(json.dumps(C.get(p.get("key", "last_result"), C), ensure_ascii=False, indent=2)) or i+1)
-
+            "print": lambda C, p, S, i: (print(json.dumps(C.get(p.get("key", "last_result"), C), ensure_ascii=False, indent=2)) or i+1),
+            "load_step_result": lambda C, p, S, i: (C.update({"df": C.get("results", {}).get(p.get("step_id"), C.get("df")), "last_result": C.get("results", {}).get(p.get("step_id"), C.get("last_result", ""))}), i+1)[1],
         }
         i = 0
         while 0 <= i < len(S):
@@ -40,7 +38,6 @@ class PipelineEngine:
                     i += 1
             else: i += 1
         return C
-
     def execute(s, config_path):
         s._name = os.path.splitext(os.path.basename(config_path))[0]
         s._t0 = time.time()
