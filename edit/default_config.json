@@ -1,211 +1,207 @@
 {
-    "elt_ops": {
-      "load_step_result": {
-    "step_id": "str — 必填，指定要提取的 pipeline step ID（如 'step_01'），将其执行结果提取并覆盖为当前的数据流"
-      },
-      "read_excel": {
-        "file": "str — 必填，Excel文件路径（基于 base_dir），例如 'data/input.xlsx'",
-        "sheet": "str|int — 可选，工作表名称或索引，默认 0",
-        "header_row": "int — 可选，表头所在行（从1开始），默认 1"
-      },
-      "read_csv": {
-        "file": "str — 必填，CSV文件路径（基于 base_dir），例如 'data/input.csv'",
-        "delimiter": "str — 可选，分隔符，默认 ','",
-        "encoding": "str — 可选，文件编码，可填 'auto' 自动推断，或如 'utf-8', 'gbk'，默认 'utf-8'"
-      },
-      "filter": {
-        "column": "str — 必填，需要过滤的列名",
-        "op": "str — 必填，比较操作符，支持 '>', '>=', '<', '<=', '==', '!='",
-        "value": "any — 必填，比较的目标值"
-      },
-      "sort": {
-        "column": "str|list — 必填，排序列的列名或列表",
-        "ascending": "bool|list — 可选，是否升序排列，默认 true"
-      },
-      "rename": {
-        "map": "dict — 必填，列名重命名字典，例如 {'旧列名': '新列名'}"
-      },
-      "select": {
-        "columns": "list — 必填，需要保留的列名列表，例如 ['A', 'B']"
-      },
-      "drop": {
-        "columns": "list — 必填，需要删除的列名列表"
-      },
-      "fill_null": {
-        "column": "str — 必填，需要填充缺失值的列名",
-        "value": "any — 必填，用于填充的值"
-      },
-      "calc": {
-        "new_col": "str — 必填，计算结果生成的新列名",
-        "formula": "str — 必填，计算公式，如 'A + B' 或 Python 表达式（支持 pd, np 等基础运算）"
-      },
-      "group": {
-        "by": "list — 必填，分组列的列表，例如 ['category']",
-        "agg": "dict — 必填，聚合规则字典，例如 {'sales': 'sum', 'id': 'count'}"
-      },
-      "join": {
-        "source": "str — 必填，要连接的历史步骤 ID（右表），例如 'step_01'",
-        "on": "str|list — 必填，用于连接的关键列",
-        "how": "str — 可选，连接方式（'left', 'right', 'inner', 'outer'），默认 'left'"
-      },
-      "pivot": {
-        "index": "str|list — 必填，透视表的行索引",
-        "columns": "str|list — 必填，透视表的列索引",
-        "values": "str|list — 必填，需要进行聚合的数据列",
-        "agg": "str — 可选，聚合函数，默认 'sum'"
-      },
-      "unpivot": {
-        "id_cols": "list — 必填，不需要逆透视的保留列（即行标识列）",
-        "var_col": "str — 可选，生成的变量列名，默认 'variable'",
-        "value_col": "str — 可选，生成的数据值列名，默认 'value'"
-      },
-      "overlay": {
-        "source_col": "str — 必填，源数据列名（用于覆盖的值）",
-        "target_col": "str — 必填，目标数据列名（被覆盖的列）",
-        "drop": "bool — 可选，是否在覆盖后删除源列，默认 true"
-      },
-      "split_write": {
-        "group_col": "str|list — 必填，按照哪些列进行分组拆分",
-        "out_dir": "str — 必填，输出文件夹路径",
-        "name_col": "str — 可选，作为输出文件名的列，默认使用 group_col",
-        "encoding": "str — 可选，输出文件的编码，默认 'utf-8-sig'"
-      },
-      "fuzzy_override": {
-        "source": "str — 必填，包含覆盖规则的历史步骤 ID（字典表）",
-        "match_col": "str — 必填，精确匹配列（左右表必须一致）",
-        "text_col": "str — 必填，当前数据流中需要执行模糊匹配的文本列",
-        "contains_col": "str — 必填，规则表中的关键字列（只要 text_col 包含该词即可匹配）",
-        "source_val_col": "str — 必填，规则表中提供新值的列",
-        "target_val_col": "str — 必填，当前数据流中将被修改或赋值的目标列"
-      },
-      "write_excel": {
-        "file": "str — 必填，保存的Excel文件路径，例如 'output/result.xlsx'",
-        "sheet": "str — 可选，工作表名称，默认 'Sheet1'"
-      },
-      "write_csv": {
-        "file": "str — 必填，保存的CSV文件路径",
-        "clean_newlines": "bool — 可选，是否清除文本中的换行符以防止错行，默认 true",
-        "encoding": "str — 可选，保存编码，默认 'utf-8-sig'"
-      },
-      "rank": {
-        "column": "str — 必填，用来计算排名的源列",
-        "new_col": "str — 可选，输出的排序列名，默认在源列名后加 '_rank'",
-        "ascending": "bool — 可选，是否按升序计算排名，默认 true",
-        "method": "str — 可选，排名方法（'min', 'max', 'average', 'dense'），默认 'min'",
-        "group_by": "list — 可选，按哪些列分组后再分别计算排名",
-        "top_n": "int — 可选，只保留排名前 N 的行"
-      },
-      "value_counts": {
-        "column": "str — 必填，要统计频数的列",
-        "normalize": "bool — 可选，是否返回频率（百分比），默认 false",
-        "dropna": "bool — 可选，是否丢弃空值，默认 false",
-        "count_col": "str — 可选，生成的统计结果列名，默认 'count'",
-        "sort_ascending": "bool — 可选，是否对结果进行升序排列"
-      },
-      "bin": {
-        "column": "str — 必填，需要进行分箱的数值列",
-        "new_col": "str — 可选，分箱结果存放的新列名，默认在源列名后加 '_bin'",
-        "bins": "list|int — 可选，自定义分箱边界列表（如 [0, 10, 20]）或等距分箱的数量",
-        "q": "int — 可选，等频分箱（分位数）的数量（bins 和 q 二选一）",
-        "labels": "list — 可选，对应分箱后的标签名称，例如 ['低', '中', '高']"
-      },
-      "describe": {
-        "columns": "list — 可选，指定要进行统计描述的列（为空则统计所有数值列）",
-        "percentiles": "list — 可选，指定要计算的分位数，默认 [.25, .5, .75]"
-      },
-      "cumulative": {
-        "column": "str — 必填，要计算累计值的数值列",
-        "new_col": "str — 可选，结果保存的新列名，默认在源列名加 '_cum'（同时会自动生成百分比列 '_pct'）",
-        "group_by": "list — 可选，指定按哪些列进行分组累计计算",
-        "sort_desc": "bool — 可选，计算前是否先按该列降序排序，默认 true"
-      },
-      "head_tail": {
-        "n": "int — 可选，需要保留的行数，默认 10",
-        "mode": "str — 可选，提取模式：'head'(取前n条)、'tail'(取后n条)、'both'(首尾各取n条)，默认 'head'"
-      }
+  "public_ops": {
+    "load_step_result": {
+      "step_id": "str — 必填，指定要提取的 pipeline step ID（如 'step_01'），将其执行结果提取并覆盖为当前的数据流"
     },
-    "file_ops": {
-      "load_step_result": {
-          "step_id": "str — 必须，指定要获取的 pipeline step 的 ID，提取其执行结果并设为当前流的输入，例如 'step_01'"
-        },
-        "scan_directory": {
-          "folder_path": "str — 必须，要扫描的目录路径，例如 'C:/target_folder' 或 './data'"
-        },
-        "filter_files": {
-          "conditions": "list — 必须，过滤条件的列表，每个条件包含 'field'(字段，如 name/size/ext/modify_time/type)，'operator'(操作符，如 =/~/</>) 和 'value'(比较值)"
-        },
-        "batch_delete": {
-          "说明": "无需参数 — 读取上一步的数据流，直接将包含的文件或文件夹全部删除"
-        },
-        "batch_rename": {
-          "prefix": "str — 可选，重命名后文件的前缀名称，例如 'file' 会生成 'file_1.txt', 'file_2.txt' 等，默认 'file'"
-        },
-        "limit_items": {
-          "count": "int — 必须，限制当前数据流中保留的文件数量，例如 10 表示只保留前 10 个项目往下传递"
-        },
-        "batch_copy": {
-          "dest_path": "str — 必须，目标复制路径，将当前流中的所有文件或文件夹复制到该路径，例如 'D:/backup_folder'"
-        },
-        "print_result": {
-          "content": "any — 可选，直接指定要打印的内容。如果不传此参数，默认将当前数据流（上一步结果）以 JSON 格式美化打印到控制台"
-        },
-        "open_program": {
-          "path": "str — 可选，指定需要打开的路径（文件或文件夹）。如果不指定，则默认调用系统资源管理器打开当前数据流正在处理的 base_path"
-        },
-        "print":{
-          "content":"str — 可选，要打印的内容，默认 ctx['last_result']"
-        }
+    "goto": {
+      "target": "str — 必填，输入目标Step ID，实现流程跳转"
     },
-    "attemper_ops": {
-      "run_py": {
-        "file": "str — 要执行的目标文件路径，传递给对应ops模块的run函数，例如 'data/input.csv'"
-      },
-      "run_exe": {
-        "exe": "str — 可执行文件路径或名称，例如 'ffmpeg' 或 'C:/tools/app.exe'（也可用 'script' 作为字段名，两者二选一）",
-        "args": "list|str — 可选，传递给可执行文件的命令行参数，支持列表或字符串格式，例如 ['-i', 'input.mp4'] 或 '--help'，默认 []",
-        "cwd": "str|null — 可选，程序执行的工作目录路径，默认 null（当前目录）"
-      },
-      "wait": {
-        "seconds": "number — 可选，等待的秒数，支持整数和小数，例如 10 或 1.5，默认 0",
-        "message": "str — 可选，等待开始时打印的提示信息，例如 '等待数据库就绪'，默认 ''（不打印）"
-      }
+    "condition": {
+      "check": "str — 必填，判定条件的Python表达式",
+      "then": "str — 必填，条件为真时跳转的Step ID",
+      "else": "str — 必填，条件为假时跳转的Step ID"
     },
-    "ai_ops":{
-      "load_step_result": {
-          "step_id": "str — 必须，指定要获取的 pipeline step 的 ID，提取其执行结果并设为当前流的输入，例如 'step_01'"
-        },
-        "text_to_speech": {
-          "output_path": "str — 可选，保存生成的语音文件路径，默认 'output/speech.mp3'",
-          "voice": "str — 可选，选择的微软TTS语音角色，例如 'zh-CN-XiaoxiaoNeural'（默认）"
-        },
-        "chat": {
-          "url": "str — 可选，API请求地址，默认 'https://www.dmxapi.cn/v1/chat/completions'",
-          "apikey": "str — 可选，API的认证密钥，默认 'sk-'",
-          "model": "str — 可选，使用的模型名称，默认 'gemini-3.1-flash-lite-preview'",
-          "prompt": "str — 可选，系统提示词(System Prompt)，默认 '你是一个助手'",
-          "content": "str — 可选，发送给AI的对话内容。如果不传，则默认读取上一步传递下来的数据流"
-        },
-        "print_content": {
-          "说明": "无需参数 — 直接将当前数据流（上一步结果）打印输出到控制台，主要用于调试"
-        },
-        "show_simpledialog": {
-          "content": "str — 可选，弹窗中显示的提示文本内容。如果不传，则默认读取上一步传递下来的数据流。用户在弹窗中输入的文本将成为新的数据流继续向下传递"
-        },
-        "parse_readable_text": {
-          "说明": "无需参数 — 获取当前数据流中的 Markdown 或粗排版文本，清洗格式并转换为更易读的排版，然后覆盖当前数据流向下传递"
-        },
-        "open_program": {
-          "file": "str — 可选，指定需要打开的文件路径或程序。如果不指定，则尝试将当前数据流（比如上一步TTS生成的音频文件路径）作为目标路径使用系统默认程序打开"
-        },
-      "goto":{
-        "target": "str — 可选，输入目标Step ID 然后实现流程跳转"
-      }
+    "print": {
+      "key": "str — 可选，要打印的内容键名，默认 'last_result'"
     },
-    "datavisual_ops":{
-      "htmltable":{
-        "file": "str — 输出HTML文件路径，相对于 base_dir，例如 'output/table.html'（目录不存在时自动创建）",
-        "styles": "dict — 可选，表格样式设置，格式: {\"selector\": {\"property\": \"value\", ...}, ...}，例如 {\"table\": {\"border\": \"1px solid black\"}, \"th\": {\"background-color\": \"#f2f2f2\"}}"
-      }
+    "end": {
+      "说明": "无需参数 — 结束当前全流程"
+    }
+  },
+  "elt_ops": {
+    "read_excel": {
+      "file": "str — 必填，Excel文件路径（基于 base_dir），例如 'data/input.xlsx'",
+      "sheet": "str|int — 可选，工作表名称或索引，默认 0",
+      "header_row": "int — 可选，表头所在行（从1开始），默认 1"
+    },
+    "read_csv": {
+      "file": "str — 必填，CSV文件路径（基于 base_dir），例如 'data/input.csv'",
+      "delimiter": "str — 可选，分隔符，默认 ','",
+      "encoding": "str — 可选，文件编码，可填 'auto' 自动推断，或如 'utf-8', 'gbk'，默认 'utf-8'"
+    },
+    "filter": {
+      "column": "str — 必填，需要过滤的列名",
+      "op": "str — 必填，比较操作符，支持 '>', '>=', '<', '<=', '==', '!='",
+      "value": "any — 必填，比较的目标值"
+    },
+    "sort": {
+      "column": "str|list — 必填，排序列的列名或列表",
+      "ascending": "bool|list — 可选，是否升序排列，默认 true"
+    },
+    "rename": {
+      "map": "dict — 必填，列名重命名字典，例如 {'旧列名': '新列名'}"
+    },
+    "select": {
+      "columns": "list — 必填，需要保留的列名列表，例如 ['A', 'B']"
+    },
+    "drop": {
+      "columns": "list — 必填，需要删除的列名列表"
+    },
+    "fill_null": {
+      "column": "str — 必填，需要填充缺失值的列名",
+      "value": "any — 必填，用于填充的值"
+    },
+    "calc": {
+      "new_col": "str — 必填，计算结果生成的新列名",
+      "formula": "str — 必填，计算公式，如 'A + B' 或 Python 表达式（支持 pd, np 等基础运算）"
+    },
+    "group": {
+      "by": "list — 必填，分组列的列表，例如 ['category']",
+      "agg": "dict — 必填，聚合规则字典，例如 {'sales': 'sum', 'id': 'count'}"
+    },
+    "join": {
+      "source": "str — 必填，要连接的历史步骤 ID（右表），例如 'step_01'",
+      "on": "str|list — 必填，用于连接的关键列",
+      "how": "str — 可选，连接方式（'left', 'right', 'inner', 'outer'），默认 'left'"
+    },
+    "pivot": {
+      "index": "str|list — 必填，透视表的行索引",
+      "columns": "str|list — 必填，透视表的列索引",
+      "values": "str|list — 必填，需要进行聚合的数据列",
+      "agg": "str — 可选，聚合函数，默认 'sum'"
+    },
+    "unpivot": {
+      "id_cols": "list — 必填，不需要逆透视的保留列（即行标识列）",
+      "var_col": "str — 可选，生成的变量列名，默认 'variable'",
+      "value_col": "str — 可选，生成的数据值列名，默认 'value'"
+    },
+    "overlay": {
+      "source_col": "str — 必填，源数据列名（用于覆盖的值）",
+      "target_col": "str — 必填，目标数据列名（被覆盖的列）",
+      "drop": "bool — 可选，是否在覆盖后删除源列，默认 true"
+    },
+    "split_write": {
+      "group_col": "str|list — 必填，按照哪些列进行分组拆分",
+      "out_dir": "str — 必填，输出文件夹路径",
+      "name_col": "str — 可选，作为输出文件名的列，默认使用 group_col",
+      "encoding": "str — 可选，输出文件的编码，默认 'utf-8-sig'"
+    },
+    "fuzzy_override": {
+      "source": "str — 必填，包含覆盖规则的历史步骤 ID（字典表）",
+      "match_col": "str — 必填，精确匹配列（左右表必须一致）",
+      "text_col": "str — 必填，当前数据流中需要执行模糊匹配的文本列",
+      "contains_col": "str — 必填，规则表中的关键字列（只要 text_col 包含该词即可匹配）",
+      "source_val_col": "str — 必填，规则表中提供新值的列",
+      "target_val_col": "str — 必填，当前数据流中将被修改或赋值的目标列"
+    },
+    "write_excel": {
+      "file": "str — 必填，保存的Excel文件路径，例如 'output/result.xlsx'",
+      "sheet": "str — 可选，工作表名称，默认 'Sheet1'"
+    },
+    "write_csv": {
+      "file": "str — 必填，保存的CSV文件路径",
+      "clean_newlines": "bool — 可选，是否清除文本中的换行符以防止错行，默认 true",
+      "encoding": "str — 可选，保存编码，默认 'utf-8-sig'"
+    },
+    "rank": {
+      "column": "str — 必填，用来计算排名的源列",
+      "new_col": "str — 可选，输出的排序列名，默认在源列名后加 '_rank'",
+      "ascending": "bool — 可选，是否按升序计算排名，默认 true",
+      "method": "str — 可选，排名方法（'min', 'max', 'average', 'dense'），默认 'min'",
+      "group_by": "list — 可选，按哪些列分组后再分别计算排名",
+      "top_n": "int — 可选，只保留排名前 N 的行"
+    },
+    "value_counts": {
+      "column": "str — 必填，要统计频数的列",
+      "normalize": "bool — 可选，是否返回频率（百分比），默认 false",
+      "dropna": "bool — 可选，是否丢弃空值，默认 false",
+      "count_col": "str — 可选，生成的统计结果列名，默认 'count'",
+      "sort_ascending": "bool — 可选，是否对结果进行升序排列"
+    },
+    "bin": {
+      "column": "str — 必填，需要进行分箱的数值列",
+      "new_col": "str — 可选，分箱结果存放的新列名，默认在源列名后加 '_bin'",
+      "bins": "list|int — 可选，自定义分箱边界列表（如 [0, 10, 20]）或等距分箱的数量",
+      "q": "int — 可选，等频分箱（分位数）的数量（bins 和 q 二选一）",
+      "labels": "list — 可选，对应分箱后的标签名称，例如 ['低', '中', '高']"
+    },
+    "describe": {
+      "columns": "list — 可选，指定要进行统计描述的列（为空则统计所有数值列）",
+      "percentiles": "list — 可选，指定要计算的分位数，默认 [.25, .5, .75]"
+    },
+    "cumulative": {
+      "column": "str — 必填，要计算累计值的数值列",
+      "new_col": "str — 可选，结果保存的新列名，默认在源列名加 '_cum'（同时会自动生成百分比列 '_pct'）",
+      "group_by": "list — 可选，指定按哪些列进行分组累计计算",
+      "sort_desc": "bool — 可选，计算前是否先按该列降序排序，默认 true"
+    },
+    "head_tail": {
+      "n": "int — 可选，需要保留的行数，默认 10",
+      "mode": "str — 可选，提取模式：'head'(取前n条)、'tail'(取后n条)、'both'(首尾各取n条)，默认 'head'"
+    }
+  },
+  "file_ops": {
+    "scan_directory": {
+      "folder_path": "str — 必须，要扫描的目录路径，例如 'C:/target_folder' 或 './data'"
+    },
+    "filter_files": {
+      "conditions": "list — 必须，过滤条件的列表，每个条件包含 'field'(字段，如 name/size/ext/modify_time/type)，'operator'(操作符，如 =/~/</>) 和 'value'(比较值)"
+    },
+    "batch_delete": {
+      "说明": "无需参数 — 读取上一步的数据流，直接将包含的文件或文件夹全部删除"
+    },
+    "batch_rename": {
+      "prefix": "str — 可选，重命名后文件的前缀名称，例如 'file' 会生成 'file_1.txt', 'file_2.txt' 等，默认 'file'"
+    },
+    "limit_items": {
+      "count": "int — 必须，限制当前数据流中保留的文件数量，例如 10 表示只保留前 10 个项目往下传递"
+    },
+    "batch_copy": {
+      "dest_path": "str — 必须，目标复制路径，将当前流中的所有文件或文件夹复制到该路径，例如 'D:/backup_folder'"
+    },
+    "open_program": {
+      "path": "str — 可选，指定需要打开的路径（文件或文件夹）。如果不指定，则默认调用系统资源管理器打开当前数据流正在处理的 base_path"
+    }
+  },
+  "attemper_ops": {
+    "run_py": {
+      "file": "str — 必填，Python 脚本路径，文件名须符合规范（如 'elt_ops_sync.py'），系统会自动匹配处理器执行，例如 'scripts/file_ops_clean.py'"
+    },
+    "run_exe": {
+      "exe": "str — 必填，可执行程序路径或名称，例如 'ffmpeg' 或 'python.exe'",
+      "args": "list — 可选，传递给程序的参数列表，例如 ['--version', '-o', 'out.txt']，默认 []",
+      "cwd": "str|null — 可选，程序运行的工作目录，默认 null（当前目录）"
+    },
+    "wait": {
+      "seconds": "float|int — 必填，暂停执行的秒数，例如 5.5"
+    }
+  },
+  "ai_ops": {
+    "text_to_speech": {
+      "output_path": "str — 可选，保存生成的语音文件路径，默认 'output/speech.mp3'",
+      "voice": "str — 可选，选择的微软TTS语音角色，例如 'zh-CN-XiaoxiaoNeural'（默认）"
+    },
+    "chat": {
+      "url": "str — 可选，API请求地址，默认 'https://www.dmxapi.cn/v1/chat/completions'",
+      "apikey": "str — 可选，API的认证密钥，默认 'sk-'",
+      "model": "str — 可选，使用的模型名称，默认 'gemini-3.1-flash-lite-preview'",
+      "prompt": "str — 可选，系统提示词(System Prompt)，默认 '你是一个助手'",
+      "content": "str — 可选，发送给AI的对话内容。如果不传，则默认读取上一步传递下来的数据流"
+    },
+    "show_simpledialog": {
+      "content": "str — 可选，弹窗中显示的提示文本内容。如果不传，则默认读取上一步传递下来的数据流。用户在弹窗中输入的文本将成为新的数据流继续向下传递"
+    },
+    "parse_readable_text": {
+      "说明": "无需参数 — 获取当前数据流中的 Markdown 或粗排版文本，清洗格式并转换为更易读的排版，然后覆盖当前数据流向下传递"
+    },
+    "open_program": {
+      "file": "str — 可选，指定需要打开的文件路径或程序。如果不指定，则尝试将当前数据流（比如上一步TTS生成的音频文件路径）作为目标路径使用系统默认程序打开"
+    }
+  },
+  "datavisual_ops": {
+    "htmltable": {
+      "file": "str — 输出HTML文件路径，相对于 base_dir，例如 'output/table.html'（目录不存在时自动创建）",
+      "styles": "dict — 可选，表格样式设置，格式: {\"selector\": {\"property\": \"value\", ...}, ...}，例如 {\"table\": {\"border\": \"1px solid black\"}, \"th\": {\"background-color\": \"#f2f2f2\"}}"
     }
   }
-  
+}

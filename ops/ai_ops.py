@@ -19,12 +19,12 @@ def text_to_speech(ctx, params):
     text = ctx.get("last_result", "")
     output_path = params.get("output_path", "output/speech.mp3")
     voice = params.get("voice", "zh-CN-XiaoxiaoNeural")
-    
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     asyncio.run(edge_tts.Communicate(text, voice).save(output_path))
-    
     ctx["last_result"] = output_path
     return output_path
+
+    
 def chat(ctx, params):
     url = params.get("url", "https://www.dmxapi.cn/v1/chat/completions")
     apikey = params.get("apikey", "sk-")

@@ -5,20 +5,17 @@ from urllib.parse import urlparse
 from edit.config import ACTIVE_PROFILE, RUN_SETTINGS, BASE_DIR, PROFILE_KEY
 from edit import utils
 from edit import templates
-
 class ConfigHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header('Content-Type', 'text/html;charset=utf-8')
         self.end_headers()
         self.wfile.write(templates.get_page_html().encode('utf-8'))
-
     def do_POST(self):
         path = urlparse(self.path).path
         length = int(self.headers.get('Content-Length', 0))
         body = json.loads(self.rfile.read(length)) if length else {}
         resp = {}
-
         if path == '/api/heartbeat':
             resp = {"ok": 1}
         elif path == '/api/load':
@@ -29,8 +26,8 @@ class ConfigHandler(SimpleHTTPRequestHandler):
             resp = {"data": utils.load_file(path_val)} if os.path.exists(path_val) else {"error": "文件不存在"}
         elif path == '/api/save':
             fp = body.get('path', RUN_SETTINGS["config_path"])
-            data = utils.clean_data(body['data']) # data is now a flat list
-            for r in data:
+            data = utils.clean_data(body['data'])
+            for r in data.get('rows', []):
                 for i, v in enumerate(r):
                     if isinstance(v, str) and ':\\' in v: r[i] = v.replace('\\', '/')
             with open(fp, 'w', encoding='utf-8') as f:
@@ -84,15 +81,12 @@ class ConfigHandler(SimpleHTTPRequestHandler):
             else:
                 resp = {"error": msg}
         self._send_json(resp)
-
     def _send_json(self, data):
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
-
     def log_message(self, format, *args): pass
-
 if __name__ == '__main__':
     utils.ensure_config_exists()
     port = 5001
@@ -107,3 +101,10 @@ if __name__ == '__main__':
     if sys.platform == 'win32': os.startfile(url)
     else: webbrowser.open(url)
     server.serve_forever()
+
+
+
+
+
+
+    

@@ -1,4 +1,3 @@
-# utils.py
 import json, os, re
 from tkinter import Tk, filedialog
 from .config import ACTIVE_PROFILE, RUN_SETTINGS, BASE_DIR, JSON_COLS
@@ -38,22 +37,32 @@ def ensure_config_exists():
         with open(cp, 'w', encoding='utf-8') as f:
             json.dump(default_rows, f, ensure_ascii=False, indent=2)
 
-def get_run_cmd():
+def generate_temp_file(profile_name, data):
+    temp_path = os.path.join(BASE_DIR, f"{profile_name}_temp.json")
+    with open(temp_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    return temp_path
+
+def get_run_cmd(temp_path=None):
     exe_path = os.path.join(BASE_DIR, RUN_SETTINGS["exe"])
     py_path = os.path.join(BASE_DIR, RUN_SETTINGS["py"])
     py_exe = RUN_SETTINGS["python_exe"].strip()
-    if os.path.isfile(exe_path): return [exe_path], "EXE已启动"
-    if os.path.isfile(py_exe) and os.path.isfile(py_path): return [py_exe, py_path], "Python已启动"
+    cmd_args = [temp_path] if temp_path else []
+    
+    if os.path.isfile(exe_path): return [exe_path] + cmd_args, "EXE已启动"
+    if os.path.isfile(py_exe) and os.path.isfile(py_path): return [py_exe, py_path] + cmd_args, "Python已启动"
     if not os.path.isfile(py_exe): return None, f"Python解释器无效: {py_exe}"
     if not os.path.isfile(py_path): return None, f"Python脚本不存在: {py_path}"
     return None, "找不到执行文件"
 
-def get_cmd_str():
+def get_cmd_str(temp_path=None):
     exe_path = os.path.join(BASE_DIR, RUN_SETTINGS["exe"])
     py_path = os.path.join(BASE_DIR, RUN_SETTINGS["py"])
     py_exe = RUN_SETTINGS["python_exe"].strip()
-    if os.path.isfile(exe_path): return f'"{exe_path}"'
-    if os.path.isfile(py_exe) and os.path.isfile(py_path): return f'"{py_exe}" "{py_path}"'
+    arg = f' "{temp_path}"' if temp_path else ""
+    
+    if os.path.isfile(exe_path): return f'"{exe_path}"{arg}'
+    if os.path.isfile(py_exe) and os.path.isfile(py_path): return f'"{py_exe}" "{py_path}"{arg}'
     return None
 
 def browse_path(mode, initial_dir=""):

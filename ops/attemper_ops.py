@@ -20,18 +20,6 @@ OPS_MODULE_MAP = {
 # 核心数据流控制函数
 # ==========================================
 
-def load_step_result(ctx, params):
-    """
-    【新增】专门负责将历史步骤的结果提取到当前 last_result 中。
-    后续节点只需读取 last_result 即可实现数据闭环。
-    """
-    step_id = params.get("step_id")
-    # 从 ctx["results"] 获取指定步骤的输出
-    res = ctx.get("results", {}).get(step_id)
-    if res is not None:
-        ctx["last_result"] = res
-    return res
-
 # ==========================================
 # 执行节点函数
 # ==========================================
@@ -81,7 +69,6 @@ def wait(ctx, params):
 # ==========================================
 
 OP_MAP = {
-    "load_step_result": load_step_result,
     "run_py": run_py,
     "run_exe": run_exe,
     "wait": wait,

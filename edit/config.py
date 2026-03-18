@@ -48,3 +48,10 @@ _default_cfg_path = os.path.join(BASE_DIR, "default_config.json")
 if os.path.isfile(_default_cfg_path):
     with open(_default_cfg_path, 'r', encoding='utf-8') as f:
         DEFAULT_CONFIG = json.load(f)
+        
+    # 将 public_ops 合并到所有其它 ops 分类中，并从独立分类中移除
+    if "public_ops" in DEFAULT_CONFIG:
+        pub_ops = DEFAULT_CONFIG.pop("public_ops")
+        for category, ops_dict in DEFAULT_CONFIG.items():
+            if isinstance(ops_dict, dict):
+                ops_dict.update(pub_ops)
