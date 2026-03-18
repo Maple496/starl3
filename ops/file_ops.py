@@ -4,21 +4,10 @@ from core.pipeline_engine import PipelineEngine
 import time
 import json
 from datetime import datetime
+
 # ==========================================
 # 辅助工具函数
 # ==========================================
-
-def _get_input_data(ctx, params):
-    """
-    统一的数据提取层：
-    优先读取 param 指定的 step_id 的结果，如果没有指定，则读取上一步的 last_result
-    """
-    source_step = params.get("source_step")
-    if source_step:
-        # PipelineEngine 会自动把结果存放在 ctx["results"][step_id]
-        return ctx.get("results", {}).get(source_step, {})
-    return ctx.get("last_result", {})
-
 
 def _match(name, info, conditions):
     """匹配过滤条件的内部核心逻辑"""
@@ -97,6 +86,18 @@ def _match(name, info, conditions):
 # 管道操作函数 (Pipeline Steps)
 # ==========================================
 
+def load_step_result(ctx, params):
+    """提取指定 step_id 的结果，覆盖到当前的 last_result 中，用于重置数据流"""
+    step_id = params.get("step_id")
+    if step_id and step_id in ctx.get("results", {}):
+        result = ctx["results"][step_id]
+    else:
+        result = ctx.get("last_result", {})
+        
+    ctx["last_result"] = result
+    return result
+
+
 def scan_directory(ctx, params):
     folder_path = params.get("folder_path")
     items_data = {}
@@ -117,8 +118,7 @@ def scan_directory(ctx, params):
 
 
 def filter_files(ctx, params):
-    # 动态获取输入：当前结果 or 指定 step_id 的结果
-    data = _get_input_data(ctx, params)
+    data = ctx.get("last_result", {})
     base_path = data.get("base_path", "")
     items = data.get("items", {})
     
@@ -131,7 +131,7 @@ def filter_files(ctx, params):
 
 
 def batch_delete(ctx, params):
-    data = _get_input_data(ctx, params)
+    data = ctx.get("last_result", {})
     base_path = data.get("base_path", "")
     items = data.get("items", {})
 
@@ -149,7 +149,7 @@ def batch_delete(ctx, params):
 
 
 def batch_rename(ctx, params):
-    data = _get_input_data(ctx, params)
+    data = ctx.get("last_result", {})
     base_path = data.get("base_path", "")
     items = data.get("items", {})
     prefix = params.get("prefix", "file")
@@ -177,8 +177,20 @@ def batch_rename(ctx, params):
     return result
 
 
+def limit_items(ctx, params):
+    data = ctx.get("last_result", {})
+    base_path = data.get("base_path", "")
+    items = data.get("items", {})
+    count = params.get("count")
+    
+    limited = dict(list(items.items())[:count])
+    result = {"base_path": base_path, "items": limited}
+    ctx["last_result"] = result
+    return result
+
+
 def batch_copy(ctx, params):
-    data = _get_input_data(ctx, params)
+    data = ctx.get("last_result", {})
     base_path = data.get("base_path", "")
     items = data.get("items", {})
     dest_path = params.get("dest_path")
@@ -202,14 +214,14 @@ def batch_copy(ctx, params):
 
 
 def print_result(ctx, params):
-    data = params.get("content") or _get_input_data(ctx, params)
+    data = params.get("content") or ctx.get("last_result", {})
     print(">>> [Pipeline Step Result]:")
     print(json.dumps(data, indent=2, ensure_ascii=False))
     return data
 
 
 def open_program(ctx, params):
-    data = _get_input_data(ctx, params)
+    data = ctx.get("last_result", {})
     
     # 允许显式指定路径，如果不指定，默认打开最后操作所在的文件夹(或者文件)
     path = params.get("path")
@@ -231,12 +243,14 @@ def open_program(ctx, params):
 # ==========================================
 
 OP_MAP = {
+    "load_step_result": load_step_result,
     "scan_directory": scan_directory,
     "filter_files": filter_files,
     "batch_rename": batch_rename,
     "batch_copy": batch_copy,
+    "limit_items": limit_items,
     "batch_delete": batch_delete,
-    "print_result": print_result, # 注意：避免和引擎内置的 'print' 关键字冲突，起名为 print_result
+    "print_result": print_result, 
     "open_program": open_program
 }
 
