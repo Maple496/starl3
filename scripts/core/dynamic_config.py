@@ -8,7 +8,7 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any, Union
-from core.constants import BASE_DIR
+from core.constants import BASE_DIR, DATA_DIR
 
 
 class DynamicConfigManager:
@@ -19,9 +19,9 @@ class DynamicConfigManager:
         初始化配置管理器
         
         Args:
-            config_dir: 配置文件夹路径（相对 BASE_DIR）
+            config_dir: 配置文件夹路径（相对 DATA_DIR）
         """
-        self.config_dir = os.path.join(BASE_DIR, config_dir)
+        self.config_dir = os.path.join(DATA_DIR, config_dir)
         self._ensure_dir_exists()
     
     def _ensure_dir_exists(self):

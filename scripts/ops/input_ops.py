@@ -13,7 +13,7 @@ from enum import Enum
 from datetime import datetime
 
 from core.pipeline_engine import PipelineEngine
-from core.constants import BASE_DIR
+from core.constants import BASE_DIR, get_dynamic_config_dir
 from core.logger import get_logger
 from core.registry import op
 from core.path_utils import safe_join, ensure_dir_exists
@@ -126,7 +126,7 @@ def _ensure_pynput():
 
 def _get_config_path(ctx: dict, config_name: str) -> str:
     """获取配置文件路径"""
-    configs_dir = os.path.join(ctx.get("base_dir", BASE_DIR), "dynamic_configs", "input")
+    configs_dir = os.path.join(str(get_dynamic_config_dir()), "input")
     os.makedirs(configs_dir, exist_ok=True)
     return os.path.join(configs_dir, f"{config_name}.json")
 
@@ -250,7 +250,7 @@ def op_list_input_configs(ctx, params):
     返回:
         配置信息列表
     """
-    configs_dir = os.path.join(ctx.get("base_dir", BASE_DIR), "dynamic_configs", "input")
+    configs_dir = os.path.join(str(get_dynamic_config_dir()), "input")
     if not os.path.exists(configs_dir):
         return []
     

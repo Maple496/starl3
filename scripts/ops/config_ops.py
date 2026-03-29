@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from tkinter import Tk, filedialog
 from core.pipeline_engine import PipelineEngine
-from core.constants import BASE_DIR
+from core.constants import BASE_DIR, DATA_DIR
 from core.registry import op
 
 
@@ -198,7 +198,7 @@ def _get_loader(ctx: Dict) -> ConfigLoader:
     """获取或创建配置加载器"""
     global _config_loader
     if _config_loader is None:
-        _config_loader = ConfigLoader(ctx.get("base_dir", BASE_DIR))
+        _config_loader = ConfigLoader(ctx.get("base_dir", DATA_DIR))
     return _config_loader
 
 
@@ -389,7 +389,7 @@ def op_select_resource(ctx, params):
     """
     mode = params.get("mode", "folder")
     title = params.get("title", "选择资源")
-    initial_dir = params.get("initial_dir") or ctx.get("base_dir", BASE_DIR)
+    initial_dir = params.get("initial_dir") or ctx.get("base_dir", DATA_DIR)
     file_types = params.get("file_types", [["All", "*.*"]])
     multiple = params.get("multiple", False)
     save_to = params.get("save_to")
@@ -529,7 +529,7 @@ OP_MAP = {
 
 
 def run(config_path=None):
-    PipelineEngine.main(OP_MAP, cfg=config_path, init_ctx=lambda: {"base_dir": BASE_DIR})
+    PipelineEngine.main(OP_MAP, cfg=config_path, init_ctx=lambda: {"base_dir": DATA_DIR})
 
 
 if __name__ == '__main__':

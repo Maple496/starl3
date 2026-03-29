@@ -1,13 +1,13 @@
 import sys
 import os
 
-# 从 core.constants 导入 BASE_DIR
-from core.constants import BASE_DIR
+# 从 core.constants 导入 DATA_DIR（用户数据目录，可迁移）
+from core.constants import DATA_DIR
 from core.registry import auto_discover, OpRegistry
 from core.pipeline_engine import UserCancelledError
 
 
-def run_pipeline(path: str, base_dir: str = BASE_DIR, trigger_ctx: dict = None):
+def run_pipeline(path: str, base_dir: str = DATA_DIR, trigger_ctx: dict = None):
     """运行 pipeline 配置文件
     
     Args:

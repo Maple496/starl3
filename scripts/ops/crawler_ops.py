@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse
 from bs4 import BeautifulSoup
 
-from core.constants import BASE_DIR
+from core.constants import BASE_DIR, DATA_DIR
 from core.pipeline_engine import PipelineEngine
 from core.registry import op
 from core.context import PipelineContext
@@ -534,7 +534,7 @@ def op_download_file(ctx, params):
         filename = os.path.basename(urlparse(url).path) or 'download'
         output_path = os.path.join('downloads', filename)
     
-    full_path = os.path.join(ctx.get('base_dir', BASE_DIR), output_path)
+    full_path = os.path.join(DATA_DIR, output_path)
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
     
     try:
@@ -581,7 +581,7 @@ def op_save_crawler_data(ctx, params):
     output_format = params.get('format', 'json')
     output_file = params.get('file', 'output/crawler_data')
     
-    full_path = os.path.join(ctx.get('base_dir', BASE_DIR), output_file)
+    full_path = os.path.join(DATA_DIR, output_file)
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
     
     try:
@@ -665,7 +665,7 @@ def op_set_proxy_pool(ctx, params):
 def run(config_path=None):
     """模块测试入口"""
     from core.registry import OpRegistry
-    PipelineEngine.main(OpRegistry.get_op_map(), cfg=config_path, init_ctx=lambda: {"base_dir": BASE_DIR})
+    PipelineEngine.main(OpRegistry.get_op_map(), cfg=config_path, init_ctx=lambda: {"base_dir": DATA_DIR})
 
 
 if __name__ == '__main__':

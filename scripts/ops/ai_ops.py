@@ -11,7 +11,7 @@ import edge_tts
 import tkinter as tk
 from tkinter import font as tkfont
 from core.pipeline_engine import PipelineEngine
-from core.constants import BASE_DIR
+from core.constants import BASE_DIR, DATA_DIR
 
 
 class DialogCancelledError(Exception):
@@ -20,7 +20,7 @@ class DialogCancelledError(Exception):
 
 def text_to_speech(ctx, params):
     """文本转语音，带异常处理"""
-    out = os.path.join(ctx.get("base_dir", ""), params.get("output_path", "output/speech.mp3"))
+    out = os.path.join(DATA_DIR, params.get("output_path", "output/speech.mp3"))
     os.makedirs(os.path.dirname(out), exist_ok=True)
     
     try:

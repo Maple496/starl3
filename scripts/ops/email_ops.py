@@ -10,7 +10,7 @@ from email.utils import formataddr
 from email import encoders
 from pathlib import Path
 from core.pipeline_engine import PipelineEngine
-from core.constants import BASE_DIR
+from core.constants import BASE_DIR, DATA_DIR
 
 
 def _get_email_config(ctx):
@@ -78,13 +78,13 @@ def op_add_attachment(ctx, params):
     if isinstance(file_path, list):
         added_count = 0
         for fp in file_path:
-            full_path = os.path.join(ctx.get("base_dir", BASE_DIR), fp)
+            full_path = os.path.join(DATA_DIR, fp)
             if os.path.exists(full_path):
                 email_content["attachments"].append(full_path)
                 added_count += 1
         return {"status": "added", "count": added_count, "total_attachments": len(email_content["attachments"])}
     else:
-        full_path = os.path.join(ctx.get("base_dir", BASE_DIR), file_path)
+        full_path = os.path.join(DATA_DIR, file_path)
         if os.path.exists(full_path):
             email_content["attachments"].append(full_path)
             return {"status": "added", "file": file_path, "total_attachments": len(email_content["attachments"])}
@@ -240,7 +240,7 @@ OP_MAP = {
 }
 
 def run(config_path=None):
-    PipelineEngine.main(OP_MAP, cfg=config_path, init_ctx=lambda: {"base_dir": BASE_DIR})
+    PipelineEngine.main(OP_MAP, cfg=config_path, init_ctx=lambda: {"base_dir": DATA_DIR})
 
 if __name__ == '__main__':
     run()

@@ -10,7 +10,7 @@ import numpy as np
 from typing import Any
 from tkinter import Tk, filedialog
 
-from core.constants import BASE_DIR
+from core.constants import BASE_DIR, DATA_DIR
 from core.pipeline_engine import PipelineEngine, UserCancelledError
 from core.logger import get_logger
 from core.registry import op, OpRegistry
@@ -504,7 +504,7 @@ def op_select_resource(ctx, params):
     """
     mode = params.get("mode", "folder")
     title = params.get("title", "选择资源")
-    initial_dir = params.get("initial_dir") or ctx.get("base_dir", BASE_DIR)
+    initial_dir = params.get("initial_dir") or ctx.get("base_dir", DATA_DIR)
     file_types = params.get("file_types", [["All", "*.*"]])
     save_to = params.get("save_to")
     config_name = params.get("config_name")
@@ -549,7 +549,7 @@ def op_select_resource(ctx, params):
     # 3. 如果没有获取到值，弹出GUI对话框
     if selected is None:
         if not os.path.exists(initial_dir):
-            initial_dir = BASE_DIR
+            initial_dir = DATA_DIR
         
         root = Tk()
         root.withdraw()
@@ -794,7 +794,7 @@ def op_merge_excel_files(ctx, params) -> pd.DataFrame:
 
 def run(config_path=None):
     """模块测试入口"""
-    PipelineEngine.main(OpRegistry.get_op_map(), cfg=config_path, init_ctx=lambda: {"base_dir": BASE_DIR})
+    PipelineEngine.main(OpRegistry.get_op_map(), cfg=config_path, init_ctx=lambda: {"base_dir": DATA_DIR})
 
 
 if __name__ == '__main__':

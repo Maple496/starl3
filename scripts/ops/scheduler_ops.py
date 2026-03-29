@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 
 from core.pipeline_engine import PipelineEngine
-from core.constants import BASE_DIR
+from core.constants import BASE_DIR, DATA_DIR
 from core.logger import get_logger
 from core.registry import op
 from core.path_utils import ensure_dir_exists
@@ -214,8 +214,8 @@ def op_watch_directory(ctx, params):
     if not watch_path or not config_file:
         raise ValueError("watch_path 和 config_file 参数必填")
     
-    watch_path = os.path.abspath(os.path.join(ctx.get("base_dir", BASE_DIR), watch_path))
-    config_file = os.path.abspath(os.path.join(ctx.get("base_dir", BASE_DIR), config_file))
+    watch_path = os.path.abspath(os.path.join(DATA_DIR, watch_path))
+    config_file = os.path.abspath(os.path.join(DATA_DIR, config_file))
     
     if not os.path.exists(watch_path):
         raise FileNotFoundError(f"监控目录不存在: {watch_path}")
@@ -229,7 +229,7 @@ def op_watch_directory(ctx, params):
     handler = PipelineTriggerHandler(
         config_file=config_file,
         trigger_on=trigger_on,
-        base_dir=ctx.get("base_dir", BASE_DIR)
+        base_dir=ctx.get("base_dir", DATA_DIR)
     )
     
     # 注册到全局状态
@@ -289,7 +289,7 @@ def op_schedule_cron(ctx, params):
     if not config_file or not schedule_type:
         raise ValueError("config_file 和 schedule_type 参数必填")
     
-    base_dir = ctx.get("base_dir", BASE_DIR)
+    base_dir = ctx.get("base_dir", DATA_DIR)
     config_file = os.path.abspath(os.path.join(base_dir, config_file))
     
     if not os.path.exists(config_file):
@@ -512,7 +512,7 @@ OP_MAP = {
 
 def run(config_path=None):
     """模块测试入口"""
-    PipelineEngine.main(OP_MAP, cfg=config_path, init_ctx=lambda: {"base_dir": BASE_DIR})
+    PipelineEngine.main(OP_MAP, cfg=config_path, init_ctx=lambda: {"base_dir": DATA_DIR})
 
 
 if __name__ == '__main__':

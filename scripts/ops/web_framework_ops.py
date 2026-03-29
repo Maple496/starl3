@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
 from core.pipeline_engine import PipelineEngine
-from core.constants import BASE_DIR
+from core.constants import BASE_DIR, DATA_DIR
 from core.logger import get_logger
 from core.registry import op
 
@@ -442,7 +442,7 @@ def op_http_route_add(ctx, params):
     if not path or not config_file:
         raise ValueError("path 和 config_file 参数必填")
     
-    base_dir = ctx.get("base_dir", BASE_DIR)
+    base_dir = ctx.get("base_dir", DATA_DIR)
     config_file = os.path.abspath(os.path.join(base_dir, config_file))
     
     if not os.path.exists(config_file):
@@ -541,7 +541,7 @@ def op_http_router_start(ctx, params):
                     pass
             
             # 构建上下文
-            base_dir = ctx.get("base_dir", BASE_DIR)
+            base_dir = ctx.get("base_dir", DATA_DIR)
             trigger_ctx = {
                 "trigger_type": "http",
                 "client_ip": self.address_string().split(':')[0],
@@ -814,7 +814,7 @@ def op_db_connect_sqlite(ctx, params):
     
     # 解析路径
     if not os.path.isabs(db_path):
-        db_path = os.path.join(ctx.get("base_dir", BASE_DIR), db_path)
+        db_path = os.path.join(DATA_DIR, db_path)
     
     # 确保目录存在
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -921,7 +921,7 @@ OP_MAP = {
 
 def run(config_path=None):
     """模块测试入口"""
-    PipelineEngine.main(OP_MAP, cfg=config_path, init_ctx=lambda: {"base_dir": BASE_DIR})
+    PipelineEngine.main(OP_MAP, cfg=config_path, init_ctx=lambda: {"base_dir": DATA_DIR})
 
 
 if __name__ == '__main__':

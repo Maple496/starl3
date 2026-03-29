@@ -10,7 +10,7 @@ from typing import Dict, List, Any, Optional
 
 from core.pipeline_engine import PipelineEngine
 from core.safe_eval import SafeEvaluator, SafeEvalError
-from core.constants import BASE_DIR
+from core.constants import BASE_DIR, DATA_DIR
 from core.path_utils import ensure_dir_exists
 from core.registry import op
 from ops.plug_lib.csvtohtml1 import csv_to_html
@@ -461,7 +461,7 @@ OP_MAP = {
 }
 
 def run(config_path=None):
-    PipelineEngine.main(OP_MAP, cfg=config_path, init_ctx=lambda: {"base_dir": BASE_DIR})
+    PipelineEngine.main(OP_MAP, cfg=config_path, init_ctx=lambda: {"base_dir": DATA_DIR})
 
 if __name__ == '__main__':
     run()
