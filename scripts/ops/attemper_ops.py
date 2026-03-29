@@ -1,7 +1,7 @@
 import subprocess
 import time
 from core.pipeline_engine import PipelineEngine
-from core.constants import BASE_DIR
+from core.constants import BASE_DIR, DATA_DIR
 from main_starl3 import run_pipeline
 from core.registry import OpRegistry
 
@@ -63,7 +63,7 @@ def run(config_path=None):
     # 运行时合并 ai_ops 的操作（从注册表获取）
     op_map = OP_MAP.copy()
     op_map.update(_get_ai_ops_from_registry())
-    PipelineEngine.main(op_map, cfg=config_path, init_ctx=lambda: {"base_dir": BASE_DIR})
+    PipelineEngine.main(op_map, cfg=config_path, init_ctx=lambda: {"base_dir": DATA_DIR})
 
 
 if __name__ == '__main__':

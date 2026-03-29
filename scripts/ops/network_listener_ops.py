@@ -14,7 +14,7 @@ from urllib.parse import parse_qs, urlparse
 import re
 
 from core.pipeline_engine import PipelineEngine
-from core.constants import BASE_DIR
+from core.constants import BASE_DIR, DATA_DIR
 from core.logger import get_logger
 from core.registry import op
 
@@ -518,7 +518,7 @@ def op_tcp_listen_start(ctx, params):
     if not config_file:
         raise ValueError("config_file 参数必填")
     
-    base_dir = ctx.get("base_dir", BASE_DIR)
+    base_dir = ctx.get("base_dir", DATA_DIR)
     config_file = os.path.abspath(os.path.join(base_dir, config_file))
     
     if not os.path.exists(config_file):
@@ -593,7 +593,7 @@ def op_http_listen_start(ctx, params):
     if not config_file:
         raise ValueError("config_file 参数必填")
     
-    base_dir = ctx.get("base_dir", BASE_DIR)
+    base_dir = ctx.get("base_dir", DATA_DIR)
     config_file = os.path.abspath(os.path.join(base_dir, config_file))
     
     if not os.path.exists(config_file):
@@ -659,7 +659,7 @@ def op_udp_listen_start(ctx, params):
     if not config_file:
         raise ValueError("config_file 参数必填")
     
-    base_dir = ctx.get("base_dir", BASE_DIR)
+    base_dir = ctx.get("base_dir", DATA_DIR)
     config_file = os.path.abspath(os.path.join(base_dir, config_file))
     
     if not os.path.exists(config_file):
@@ -855,7 +855,7 @@ OP_MAP = {
 
 def run(config_path=None):
     """模块测试入口"""
-    PipelineEngine.main(OP_MAP, cfg=config_path, init_ctx=lambda: {"base_dir": BASE_DIR})
+    PipelineEngine.main(OP_MAP, cfg=config_path, init_ctx=lambda: {"base_dir": DATA_DIR})
 
 
 if __name__ == '__main__':

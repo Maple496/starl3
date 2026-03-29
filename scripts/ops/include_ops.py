@@ -74,12 +74,12 @@ def op_block(ctx, params):
 
 def run(config_path=None):
     """模块测试入口"""
-    from core.constants import BASE_DIR
+    from core.constants import DATA_DIR
     from core.registry import OpRegistry
     PipelineEngine.main(
         OpRegistry.get_op_map(), 
         cfg=config_path, 
-        init_ctx=lambda: {"base_dir": BASE_DIR}
+        init_ctx=lambda: {"base_dir": DATA_DIR}
     )
 
 
