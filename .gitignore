@@ -3,3 +3,19 @@ tests/
 
 # 忽略虚拟环境
 venv/
+
+# 忽略 Python 字节码文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 忽略 IDE 和编辑器文件
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 忽略 OS 生成的文件
+.DS_Store
+Thumbs.db
