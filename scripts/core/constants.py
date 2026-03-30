@@ -173,3 +173,26 @@ def ensure_data_dir(path: str) -> str:
 # 兼容旧函数
 resolve_path = resolve_data_path
 ensure_dir = ensure_data_dir
+
+
+
+# ==================== 编码常量 ====================
+
+# 默认 CSV/文本文件编码（带 BOM 的 UTF-8，Excel 兼容）
+DEFAULT_ENCODING = 'utf-8-sig'
+
+# 纯 UTF-8 编码（不带 BOM）
+UTF8_ENCODING = 'utf-8'
+
+# 中文 Windows 常用编码
+GBK_ENCODING = 'gbk'
+GB18030_ENCODING = 'gb18030'
+
+# 编码检测优先级（用于自动检测）
+ENCODING_PRIORITY = [
+    'utf-8-sig',
+    'utf-8',
+    'gb18030',
+    'gbk',
+    'latin-1',
+]

@@ -11,7 +11,7 @@ from typing import Dict, List, Any, Optional
 from core.pipeline_engine import PipelineEngine
 from core.safe_eval import SafeEvaluator, SafeEvalError
 from core.constants import BASE_DIR, DATA_DIR
-from core.path_utils import ensure_dir_exists
+from core.path_utils import ensure_dir_exists, _resolve_path
 from core.registry import op
 from ops.plug_lib.csvtohtml1 import csv_to_html
 from ops.plug_lib.csvtohtml2 import csv_to_html as csv_to_html2
@@ -19,33 +19,6 @@ from ops.plug_lib.csvtohtml2 import csv_to_html as csv_to_html2
 # 创建模块级别的 logger
 from core.logger import get_logger
 logger = get_logger("file_ops")
-
-
-def _resolve_path(path: str, ctx: dict) -> str:
-    """解析路径中的变量引用，如 ${paths.source_dir}
-    
-    Args:
-        path: 原始路径，可能包含变量引用
-        ctx: 上下文字典
-        
-    Returns:
-        解析后的实际路径
-    """
-    if not path or not isinstance(path, str):
-        return path
-    
-    def replace_var(match):
-        var_path = match.group(1)
-        parts = var_path.split('.')
-        current = ctx
-        for part in parts:
-            if isinstance(current, dict) and part in current:
-                current = current[part]
-            else:
-                return match.group(0)  # 变量不存在，保持原样
-        return str(current) if current is not None else match.group(0)
-    
-    return re.sub(r'\$\{([^}]+)\}', replace_var, path)
 
 
 def _match(n: str, i: Dict, conditions: List[Dict]) -> bool:
@@ -250,7 +223,7 @@ def filter_files(ctx, p):
     except Exception as e:
         raise RuntimeError(f"过滤文件时出错: {e}")
 
-def batch_delete(ctx, p):
+def batch_delete(ctx: dict, p: dict) -> dict:
     """批量删除文件/目录
     
     Args:
@@ -293,7 +266,7 @@ def batch_delete(ctx, p):
     
     return {"base_path": base_path, "items": deleted}
 
-def batch_rename(ctx, p):
+def batch_rename(ctx: dict, p: dict) -> dict:
     """批量重命名文件
     
     Args:
@@ -343,13 +316,14 @@ def batch_rename(ctx, p):
     
     return result
 
-def limit_items(ctx, p):
+def limit_items(ctx: dict, p: dict) -> dict:
+    """限制返回的项目数量"""
     d = ctx.get("last_result", {})
     count = p.get("count")
     items = dict(list(d.get("items", {}).items())[:count]) if count else d.get("items", {})
     return {"base_path": d.get("base_path"), "items": items}
 
-def batch_copy(ctx, p):
+def batch_copy(ctx: dict, p: dict) -> dict:
     """批量复制文件/目录
     
     Args:

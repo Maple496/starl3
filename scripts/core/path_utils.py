@@ -4,6 +4,7 @@ StarL3 路径安全工具模块
 """
 
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -104,3 +105,37 @@ def ensure_dir_exists(path: str) -> None:
     dir_path = os.path.dirname(path)
     if dir_path and not os.path.exists(dir_path):
         os.makedirs(dir_path, exist_ok=True)
+
+
+
+def _resolve_path(path: str, ctx: dict) -> str:
+    """
+    解析路径中的变量引用，如 ${paths.source_file}
+    
+    Args:
+        path: 原始路径，可能包含变量引用，如 "${paths.output_dir}/result.csv"
+        ctx: 上下文字典，包含变量值
+        
+    Returns:
+        解析后的实际路径
+        
+    Example:
+        >>> ctx = {'paths': {'output_dir': '/data/output'}}
+        >>> _resolve_path('${paths.output_dir}/result.csv', ctx)
+        '/data/output/result.csv'
+    """
+    if not path or not isinstance(path, str):
+        return path
+    
+    def replace_var(match):
+        var_path = match.group(1)
+        parts = var_path.split('.')
+        current = ctx
+        for part in parts:
+            if isinstance(current, dict) and part in current:
+                current = current[part]
+            else:
+                return match.group(0)  # 变量不存在，保持原样
+        return str(current) if current is not None else match.group(0)
+    
+    return re.sub(r'\$\{([^}]+)\}', replace_var, path)

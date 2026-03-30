@@ -10,12 +10,12 @@ import numpy as np
 from typing import Any
 from tkinter import Tk, filedialog
 
-from core.constants import BASE_DIR, DATA_DIR
+from core.constants import BASE_DIR, DATA_DIR, DEFAULT_ENCODING, ENCODING_PRIORITY
 from core.pipeline_engine import PipelineEngine, UserCancelledError
 from core.logger import get_logger
 from core.registry import op, OpRegistry
 from core.safe_eval import eval_dataframe_expression, SafeEvalError
-from core.path_utils import safe_join, ensure_dir_exists
+from core.path_utils import safe_join, ensure_dir_exists, _resolve_path
 from core.dynamic_config import get_config_manager
 
 logger = get_logger("elt_ops")
@@ -59,25 +59,6 @@ def _clean_newlines(df: pd.DataFrame) -> pd.DataFrame:
     }
     return df.assign(**replacements)
 
-
-def _resolve_path(path: str, ctx: dict) -> str:
-    """解析路径中的变量引用，如 ${paths.source_file}"""
-    import re
-    
-    def replace_var(match):
-        var_path = match.group(1)
-        parts = var_path.split('.')
-        current = ctx
-        for part in parts:
-            if isinstance(current, dict) and part in current:
-                current = current[part]
-            else:
-                return match.group(0)  # 变量不存在，保持原样
-        return str(current) if current is not None else match.group(0)
-    
-    return re.sub(r'\$\{([^}]+)\}', replace_var, path)
-
-
 @op("read_excel", category="elt", description="读取 Excel 文件")
 def op_read_excel(ctx, params) -> pd.DataFrame:
     """读取 Excel 文件"""
@@ -110,9 +91,9 @@ def op_read_csv(ctx, params) -> pd.DataFrame:
     
     if enc.strip().lower() == "auto":
         detected = _detect_encoding(fp)
-        encs = [detected, "utf-8-sig", "gb18030", "latin-1"]
+        encs = [detected] + [e for e in ENCODING_PRIORITY if e != detected]
     else:
-        encs = [enc.strip(), "utf-8-sig", "gb18030", "latin-1"]
+        encs = [enc.strip()] + [e for e in ENCODING_PRIORITY if e != enc.strip().lower()]
     
     seen = set()
     unique_encs = []
@@ -224,17 +205,26 @@ def op_group(ctx, params) -> pd.DataFrame:
 @op("join", category="elt", description="合并数据")
 def op_join(ctx, params) -> pd.DataFrame:
     """合并数据"""
-    df = ctx["last_result"]
+    df = ctx["last_result"].copy()
     source_key = params.get("source")
     if not source_key:
         raise ValueError("join 操作需要 'source' 参数指定源步骤")
     if source_key not in ctx.get("results", {}):
         raise ValueError(f"源步骤 '{source_key}' 不存在，请检查步骤ID")
-    source = ctx["results"][source_key]
+    source = ctx["results"][source_key].copy()
     on = params.get("on")
     if not on:
         raise ValueError("join 操作需要 'on' 参数指定连接列")
     how = params.get("how", "left")
+    
+    # 统一 join 键的数据类型（转为字符串避免类型不匹配）
+    join_cols = on if isinstance(on, list) else [on]
+    for col in join_cols:
+        if col in df.columns:
+            df[col] = df[col].astype(str)
+        if col in source.columns:
+            source[col] = source[col].astype(str)
+    
     return df.merge(source, on=on, how=how)
 
 
@@ -295,7 +285,7 @@ def op_split_write(ctx, params) -> pd.DataFrame:
     if params.get("clean_newlines", True):
         df = _clean_newlines(df)
     
-    encoding = params.get("encoding", "utf-8-sig")
+    encoding = params.get("encoding", DEFAULT_ENCODING)
     
     for name, group in df.groupby(gc):
         filename = f"{group[nc].iloc[0]}.csv"
@@ -353,7 +343,7 @@ def op_write_excel(ctx, params) -> pd.DataFrame:
 
 @op("write_csv", category="elt", description="写入 CSV")
 def op_write_csv(ctx, params) -> pd.DataFrame:
-    """写入 CSV"""
+    """写入 CSV - 增强编码处理"""
     file_path = _resolve_path(params["file"], ctx)
     
     # 如果路径已经是绝对路径，直接使用；否则使用 safe_join
@@ -369,7 +359,21 @@ def op_write_csv(ctx, params) -> pd.DataFrame:
     if params.get("clean_newlines", True):
         df = _clean_newlines(df)
     
-    df.to_csv(fp, encoding=params.get("encoding", "utf-8-sig"), index=False, quoting=1)
+    # 获取编码参数
+    encoding = params.get("encoding", DEFAULT_ENCODING)
+    
+    # 尝试写入，如果失败则使用更宽松的编码策略
+    try:
+        df.to_csv(fp, encoding=encoding, index=False, quoting=1)
+    except UnicodeEncodeError as e:
+        logger.warning(f"使用 {encoding} 编码失败，尝试使用 utf-8-sig: {e}")
+        try:
+            df.to_csv(fp, encoding='utf-8-sig', index=False, quoting=1)
+            logger.info(f"已成功使用 utf-8-sig 编码写入: {os.path.basename(fp)}")
+        except Exception as e2:
+            logger.error(f"写入 CSV 失败: {e2}")
+            raise
+    
     return df
 
 
@@ -760,20 +764,63 @@ def op_merge_excel_files(ctx, params) -> pd.DataFrame:
     header = params.get("header_row", 1) - 1
     
     all_data = []
+    failed_files = []
+    empty_files = []
+    
     for fp in excel_files:
         try:
+            # 首先检查文件是否损坏（尝试打开）
+            import zipfile
+            if fp.lower().endswith('.xlsx'):
+                try:
+                    with zipfile.ZipFile(fp, 'r') as z:
+                        z.testzip()
+                except zipfile.BadZipFile:
+                    logger.error(f"文件损坏或格式错误: {os.path.basename(fp)}")
+                    failed_files.append((fp, "文件损坏或不是有效的Excel文件"))
+                    continue
+            
             df = pd.read_excel(fp, sheet_name=sheet, header=header)
+            
+            # 检查是否为空（无数据行）
+            if len(df) == 0:
+                logger.warning(f"文件为空（无数据行）: {os.path.basename(fp)}")
+                empty_files.append(fp)
+                continue
+            
+            # 检查是否缺少关键列
+            required_cols = params.get("required_columns", [])
+            missing_cols = [col for col in required_cols if col not in df.columns]
+            if missing_cols:
+                logger.warning(f"文件缺少关键列 {missing_cols}: {os.path.basename(fp)}")
+                # 继续处理，不跳过
+            
             df["_source_file"] = os.path.basename(fp)  # 添加来源标记
             all_data.append(df)
-            logger.info(f"已读取: {os.path.basename(fp)} ({len(df)} 行)")
+            logger.info(f"已读取: {os.path.basename(fp)} ({len(df)} 行, {len(df.columns)} 列)")
+            
         except Exception as e:
-            logger.error(f"读取文件失败 {fp}: {e}")
+            logger.error(f"读取文件失败 {os.path.basename(fp)}: {e}")
+            failed_files.append((fp, str(e)))
+    
+    # 统计结果
+    if failed_files:
+        logger.warning(f"读取失败文件: {len(failed_files)} 个")
+    if empty_files:
+        logger.warning(f"空文件: {len(empty_files)} 个")
     
     if not all_data:
-        raise ValueError("没有成功读取任何 Excel 文件")
+        if failed_files and empty_files:
+            raise ValueError(f"没有成功读取任何 Excel 文件。失败: {len(failed_files)} 个, 空文件: {len(empty_files)} 个")
+        elif failed_files:
+            raise ValueError(f"所有 Excel 文件读取失败，共 {len(failed_files)} 个")
+        else:
+            raise ValueError("所有 Excel 文件都为空（无数据行）")
     
     # 合并数据
+    logger.info(f"开始合并 {len(all_data)} 个文件的数据...")
     merged = pd.concat(all_data, ignore_index=True)
+    logger.info(f"合并完成: 共 {len(merged)} 行, {len(merged.columns)} 列")
     
     # 去重（如果指定了列）
     dedup_cols = params.get("dedup_columns")

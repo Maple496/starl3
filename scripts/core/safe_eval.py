@@ -164,11 +164,7 @@ class SafeEvaluator:
     def _eval_node(self, node: ast.AST, variables: Dict[str, Any]) -> Any:
         """递归评估 AST 节点"""
         
-        # 字面量
-        if isinstance(node, ast.Constant):
-            return node.value
-        
-        # Python 3.8+ 使用 Constant 节点
+        # 字面量 (Python 3.8+ 使用 Constant 节点)
         if isinstance(node, ast.Constant):
             return node.value
         
