@@ -123,12 +123,12 @@ def parse_args(args: List[str]) -> tuple:
 PROFILE_KEY, CLI_CONFIG_PATH = parse_args(sys.argv[1:])
 ACTIVE_PROFILE = get_profile(PROFILE_KEY)
 
-# 运行时设置
+# 运行时设置（路径留空，由用户首次运行时选择）
 RUN_SETTINGS = {
     "config_path": CLI_CONFIG_PATH or ACTIVE_PROFILE["config_path"],
-    "exe": ACTIVE_PROFILE["exe"],
-    "py": ACTIVE_PROFILE["py"],
-    "python_exe": ACTIVE_PROFILE["python_exe"]
+    "exe": "",
+    "py": "",
+    "python_exe": ""
 }
 
 # 列相关配置

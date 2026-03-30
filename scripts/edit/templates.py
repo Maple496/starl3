@@ -1299,11 +1299,18 @@ window.onload = () => {
 """
 
 def get_page_html():
+    # 强制清空路径，避免硬编码
+    safe_settings = {
+        "config_path": RUN_SETTINGS.get("config_path", ""),
+        "exe": "",
+        "py": "",
+        "python_exe": ""
+    }
     profile_json = json.dumps({
         "title": ACTIVE_PROFILE["title"], "config_path": RUN_SETTINGS["config_path"],
         "columns": ACTIVE_PROFILE["columns"], "hidden_cols": HIDDEN_COLS,
         "wide_cols": [c["name"] for c in ACTIVE_PROFILE["columns"] if c["dtype"] == "json"],
         "sort_col": ACTIVE_PROFILE.get("sort_col"), "toggle_col": ACTIVE_PROFILE.get("toggle_col"),
-        "settings": RUN_SETTINGS, "default_config": DEFAULT_CONFIG, "ops_categories": list(DEFAULT_CONFIG.keys()), "public_ops": PUBLIC_OPS
+        "settings": safe_settings, "default_config": DEFAULT_CONFIG, "ops_categories": list(DEFAULT_CONFIG.keys()), "public_ops": PUBLIC_OPS
     }, ensure_ascii=False)
     return HTML_TEMPLATE.replace('__TITLE__', ACTIVE_PROFILE["title"]).replace('__PROFILE_JSON__', profile_json)

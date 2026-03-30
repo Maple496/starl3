@@ -75,28 +75,6 @@ def get_temp_dir(app_name: str = "starl3") -> Path:
     return temp_dir
 
 
-def get_log_dir(app_name: str = "starl3") -> Path:
-    """获取日志目录
-    
-    Returns:
-        Path: 日志目录路径（位于数据目录下）
-    """
-    log_dir = get_data_dir(app_name) / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    return log_dir
-
-
-def get_config_dir(app_name: str = "starl3") -> Path:
-    """获取配置目录
-    
-    Returns:
-        Path: 配置目录路径（位于数据目录下）
-    """
-    config_dir = get_data_dir(app_name) / "configs"
-    config_dir.mkdir(parents=True, exist_ok=True)
-    return config_dir
-
-
 def get_dynamic_config_dir(app_name: str = "starl3") -> Path:
     """获取动态配置目录（运行时生成的配置）
     
@@ -118,17 +96,11 @@ TEMP_DIR = str(get_temp_dir())  # 临时目录（不迁移）
 # 兼容旧代码
 BASE_DIR = APP_DIR
 
-# 常用路径（基于数据目录，可迁移）
-CONFIGS_DIR = str(get_config_dir())
+# 动态配置目录（保留）
 DYNAMIC_CONFIGS_DIR = str(get_dynamic_config_dir())
-LOGS_DIR = str(get_log_dir())
 
 # 程序目录（基于程序安装位置，只读）
 OPS_DIR = os.path.join(APP_DIR, "ops")
-
-# 旧 OUTPUT_DIR 改为基于数据目录
-OUTPUT_DIR = os.path.join(DATA_DIR, "output")
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 # ==================== 便捷函数 ====================
@@ -173,7 +145,6 @@ def ensure_data_dir(path: str) -> str:
 # 兼容旧函数
 resolve_path = resolve_data_path
 ensure_dir = ensure_data_dir
-
 
 
 # ==================== 编码常量 ====================
