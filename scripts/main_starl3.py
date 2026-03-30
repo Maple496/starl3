@@ -8,6 +8,49 @@ from core.registry import auto_discover, OpRegistry
 from core.pipeline_engine import UserCancelledError
 
 
+def select_json_file():
+    """弹出文件选择对话框选择 JSON 文件"""
+    import tkinter as tk
+    from tkinter import filedialog
+    
+    # 创建主窗口
+    root = tk.Tk()
+    root.withdraw()
+    # 确保窗口在最前
+    root.attributes('-topmost', True)
+    
+    # 弹出文件选择对话框
+    file_path = filedialog.askopenfilename(
+        title="选择 Pipeline 配置文件",
+        filetypes=[("JSON 文件", "*.json"), ("所有文件", "*.*")]
+    )
+    
+    root.destroy()
+    return file_path
+
+
+def show_error(msg):
+    """显示错误信息（支持无控制台模式）"""
+    import tkinter as tk
+    from tkinter import messagebox
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes('-topmost', True)
+    messagebox.showerror("错误", msg)
+    root.destroy()
+
+
+def show_info(msg):
+    """显示信息（支持无控制台模式）"""
+    import tkinter as tk
+    from tkinter import messagebox
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes('-topmost', True)
+    messagebox.showinfo("提示", msg)
+    root.destroy()
+
+
 def run_pipeline(path: str, base_dir: str = DATA_DIR, trigger_ctx: dict = None):
     """运行 pipeline 配置文件
     
@@ -169,10 +212,17 @@ StarL3 ELT Pipeline - 使用方法
 
 def main():
     """主入口"""
+    # 检测是否在控制台运行
+    has_console = sys.stdout is not None and hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
+    
     if len(sys.argv) <= 1:
-        print("用法: python main_starl3.py <config.json>")
-        print("      python main_starl3.py --help 查看更多信息")
-        sys.exit(1)
+        # 没有命令行参数时，弹出文件选择对话框
+        file_path = select_json_file()
+        if not file_path:
+            # 用户取消选择，静默退出
+            sys.exit(0)
+        # 使用选择的文件路径作为参数
+        sys.argv.append(file_path)
     
     arg = sys.argv[1]
     
@@ -191,16 +241,22 @@ def main():
     
     elif arg == '--show-config':
         if len(sys.argv) < 3:
-            print("[ERROR] 请指定配置名称")
-            print("用法: python main_starl3.py --show-config <config_name>")
+            msg = "[ERROR] 请指定配置名称\n用法: python main_starl3.py --show-config <config_name>"
+            if has_console:
+                print(msg)
+            else:
+                show_error("请指定配置名称")
             sys.exit(1)
         show_config(sys.argv[2])
         sys.exit(0)
     
     elif arg == '--delete-config':
         if len(sys.argv) < 3:
-            print("[ERROR] 请指定配置名称")
-            print("用法: python main_starl3.py --delete-config <config_name>")
+            msg = "[ERROR] 请指定配置名称\n用法: python main_starl3.py --delete-config <config_name>"
+            if has_console:
+                print(msg)
+            else:
+                show_error("请指定配置名称")
             sys.exit(1)
         delete_config(sys.argv[2])
         sys.exit(0)
@@ -214,12 +270,19 @@ def main():
     
     try:
         result = run_pipeline(config_path)
+        if not has_console:
+            show_info("处理完成！")
         return result
     except UserCancelledError as e:
-        print(f"\n[INFO] {e}")
+        if has_console:
+            print(f"\n[INFO] {e}")
         sys.exit(0)
     except Exception as e:
-        print(f"\n[ERROR] Pipeline 执行失败: {e}")
+        msg = f"Pipeline 执行失败: {e}"
+        if has_console:
+            print(f"\n[ERROR] {msg}")
+        else:
+            show_error(msg)
         sys.exit(1)
 
 
