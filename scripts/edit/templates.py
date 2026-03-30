@@ -154,7 +154,6 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f5f5f5;font-size:16px}
     <button class="btn btn-edit" data-action="openJsonEditor">📝 JSON <small>Alt+E</small></button>
     <button class="btn btn-new" data-action="newFile">🆕 新建 <small>Alt+N</small></button>
     <button class="btn btn-open" data-action="openFileChooser">📂 打开 <small>Alt+O</small></button>
-    <button class="btn btn-sort" data-action="sortByStepOrder">🔢 排序 <small>Alt+T</small></button>
     <button class="btn btn-gen" data-action="openFileModal" data-mode="gen">🔧 生成 <small>Alt+B</small></button>
     <button class="btn btn-settings" data-action="openSettingsModal">⚙ 设置 <small>Alt+G</small></button>
     <button class="btn btn-run" data-action="runExe">▶ 运行 <small>Alt+R</small></button>
@@ -999,14 +998,6 @@ function insertRowAbove(i) { commandExecutor.execute(new InsertRowCommand(i, 'ab
 function insertRowBelow(i) { commandExecutor.execute(new InsertRowCommand(i, 'below')); renderRows(); renderSidebar(); }
 function delRow(i) { commandExecutor.execute(new DeleteRowCommand(i)); scroller?.setTotalRows(state.rows.length); renderRows(); renderSidebar(); }
 
-function sortByStepOrder() {
-    const si = state.cols.indexOf(PROFILE.sort_col);
-    if (si < 0) return;
-    state.setRows([...state.rows].sort((a, b) => (parseInt(a[si]) || 0) - (parseInt(b[si]) || 0)));
-    scroller?.setTotalRows(state.rows.length);
-    renderRows();
-    renderSidebar();
-}
 
 function undoAction() { commandExecutor.undo(); scroller?.setTotalRows(state.rows.length); renderRows(); renderSidebar(); }
 function updateUndoIndicator() { document.getElementById('undoIndicator').textContent = `(${state.historyIndex + 1}/${state.history.length})`; }
@@ -1198,7 +1189,7 @@ function initEventDelegation() {
             addRow, undo: undoAction, runExe, applyJson, closeModal, doReplaceAll,
             fileModalAction: () => doFileModalAction(mode), applySettings: applySettingsAndReload,
             browseFill: () => browseAndFill(target, mode), openSaveAsModal, openJsonEditor, openReplaceModal,
-            openFileChooser, newFile, openSettingsModal, sortByStepOrder, openFileModal: () => openFileModal(mode),
+            openFileChooser, newFile, openSettingsModal, openFileModal: () => openFileModal(mode),
             toggleAllGroups,
             // 批量操作
             batchToggle: () => { state.batchToggle(); renderRows(); updateBatchToolbar(); },
@@ -1265,7 +1256,7 @@ function initEventDelegation() {
         const shortcuts = {
             'F12': openSaveAsModal, 's': saveConfig, 'a': addRow, 'r': runExe,
             'q': reloadConfig, 'e': openJsonEditor, 'o': openFileChooser,
-            't': sortByStepOrder, 'z': undoAction, 'g': openSettingsModal,
+            'z': undoAction, 'g': openSettingsModal,
             'n': newFile, 'b': () => openFileModal('gen')
         };
         const key = e.key === 'F12' ? 'F12' : e.key.toLowerCase();

@@ -15,12 +15,67 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VALID_DTYPES = {"str", "int", "float", "bool", "json", "enum"}
 
 # 默认配置
+def find_python_exe():
+    """自动查找可用的 Python 解释器"""
+    # 1. 优先使用当前运行的 Python
+    if sys.executable and os.path.exists(sys.executable):
+        return sys.executable
+    
+    # 2. 检查虚拟环境
+    venv_python = os.path.join(BASE_DIR, ".venv", "Scripts", "python.exe")
+    if os.path.exists(venv_python):
+        return venv_python
+    
+    # 3. 尝试找系统 python
+    for cmd in ["python", "python3", "py"]:
+        try:
+            import subprocess
+            result = subprocess.run([cmd, "--version"], capture_output=True, text=True)
+            if result.returncode == 0:
+                return cmd
+        except:
+            pass
+    
+    return "python"
+
+
+def find_starl3_runner():
+    """查找 StarL3 运行器"""
+    # BASE_DIR 是 scripts/ 目录
+    # 1. 优先查找可执行文件 (scripts 同级目录)
+    exe_path = os.path.join(os.path.dirname(BASE_DIR), "main_starl3.exe")
+    if os.path.exists(exe_path):
+        return exe_path, None
+    
+    # 2. 查找 Python 脚本 (BASE_DIR 就是 scripts/)
+    py_path = os.path.join(BASE_DIR, "main_starl3.py")
+    if os.path.exists(py_path):
+        return None, py_path
+    
+    # 3. 搜索上级目录
+    parent_dir = os.path.dirname(BASE_DIR)
+    for root, dirs, files in os.walk(parent_dir):
+        if "main_starl3.exe" in files:
+            return os.path.join(root, "main_starl3.exe"), None
+        if "main_starl3.py" in files:
+            return None, os.path.join(root, "main_starl3.py")
+        # 限制搜索深度
+        if root.count(os.sep) > parent_dir.count(os.sep) + 2:
+            break
+    
+    return None, None
+
+
+# 自动查找运行器
+_AUTO_EXE, _AUTO_PY = find_starl3_runner()
+_AUTO_PYTHON = find_python_exe()
+
 DEFAULT_PROFILE = {
     "title": "JSON Config Editor",
     "config_path": "configs/attemper_ops_config.json",
-    "exe": os.path.join(BASE_DIR, "main_starl3.exe"),
-    "py": os.path.join(BASE_DIR, "main_starl3.py"),
-    "python_exe": os.path.join(BASE_DIR, ".venv", "Scripts", "python.exe"),
+    "exe": _AUTO_EXE or os.path.join(os.path.dirname(BASE_DIR), "main_starl3.exe"),
+    "py": _AUTO_PY or os.path.join(BASE_DIR, "main_starl3.py"),
+    "python_exe": _AUTO_PYTHON,
     "run_args": lambda t, p: [t],
     "columns": [
         {"name": "step_id", "dtype": "str", "width": "80px", "label": "Step ID", "hidden": False, "default": ""},

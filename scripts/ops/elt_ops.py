@@ -268,7 +268,7 @@ def op_overlay(ctx, params) -> pd.DataFrame:
 
 @op("split_write", category="elt", description="分组写入")
 def op_split_write(ctx, params) -> pd.DataFrame:
-    """分组写入"""
+    """分组写入 - 增强编码处理"""
     df = ctx["last_result"]
     gc = params["group_col"]
     nc = params.get("name_col", gc)
@@ -287,10 +287,24 @@ def op_split_write(ctx, params) -> pd.DataFrame:
     
     encoding = params.get("encoding", DEFAULT_ENCODING)
     
+    failed_files = []
     for name, group in df.groupby(gc):
         filename = f"{group[nc].iloc[0]}.csv"
         filepath = os.path.join(out, filename)
-        group.to_csv(filepath, index=False, encoding=encoding, quoting=1)
+        
+        try:
+            group.to_csv(filepath, index=False, encoding=encoding, quoting=1)
+        except UnicodeEncodeError as e:
+            logger.warning(f"使用 {encoding} 编码写入 {filename} 失败，尝试使用 utf-8-sig")
+            try:
+                group.to_csv(filepath, index=False, encoding='utf-8-sig', quoting=1)
+                logger.info(f"已成功使用 utf-8-sig 编码写入: {filename}")
+            except Exception as e2:
+                logger.error(f"写入 {filename} 失败: {e2}")
+                failed_files.append((filename, str(e2)))
+    
+    if failed_files:
+        logger.warning(f"以下文件写入失败: {failed_files}")
     
     return df
 
