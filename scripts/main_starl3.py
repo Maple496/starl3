@@ -98,7 +98,7 @@ def list_configs():
     print()
     print(list_configs_table())
     print()
-    print("提示: 使用 --open-config-index 在 Excel 中打开 CSV 索引文件")
+    print("提示: 使用 --open-config-index 打开 JSON 配置文件")
 
 
 def show_config(config_name: str):
@@ -116,7 +116,7 @@ def show_config(config_name: str):
     print(f"配置详情: {config_name}")
     print("=" * 80)
     print()
-    print(f"配置文件: {manager._get_config_path(config_name)}")
+    print(f"配置文件: {manager.json_path}")
     print(f"创建时间: {config.get('created_at', 'N/A')}")
     print(f"更新时间: {config.get('updated_at', 'N/A')}")
     print(f"备注: {config.get('note', 'N/A')}")
@@ -175,12 +175,12 @@ def clear_all_configs():
 
 
 def open_config_index():
-    """打开 CSV 配置文件"""
+    """打开 JSON 配置文件"""
     from core.dynamic_config import get_config_manager
     
     manager = get_config_manager()
-    manager.open_csv()
-    print(f"正在打开 CSV: {manager.csv_path}")
+    manager.open_config_file()
+    print(f"正在打开: {manager.json_path}")
 
 
 def print_help():
@@ -196,7 +196,7 @@ StarL3 ELT Pipeline - 使用方法
     python main_starl3.py --show-config <name>   查看特定配置详情
     python main_starl3.py --delete-config <name> 删除特定配置
     python main_starl3.py --clear-configs        清除所有配置（需确认）
-    python main_starl3.py --open-config-index    用 Excel 打开配置索引
+    python main_starl3.py --open-config-index    打开 JSON 配置文件
 
 帮助:
     python main_starl3.py --help                 显示此帮助信息

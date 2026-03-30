@@ -25,11 +25,13 @@
   },
   "elt_ops": {
     "read_excel": {
+      "说明": "【兼容别名】读取 Excel 文件，实际调用 file_ops.import_excel",
       "file": "str — 必填，Excel文件路径（基于 base_dir），例如 'data/input.xlsx'",
       "sheet": "str|int — 可选，工作表名称或索引，默认 0",
       "header_row": "int — 可选，表头所在行（从1开始），默认 1"
     },
     "read_csv": {
+      "说明": "【兼容别名】读取 CSV 文件，实际调用 file_ops.import_csv",
       "file": "str — 必填，CSV文件路径（基于 base_dir），例如 'data/input.csv'",
       "delimiter": "str — 可选，分隔符，默认 ','",
       "encoding": "str — 可选，文件编码，可填 'auto' 自动推断，或如 'utf-8', 'gbk'，默认 'utf-8'"
@@ -86,6 +88,7 @@
       "drop": "bool — 可选，是否在覆盖后删除源列，默认 true"
     },
     "split_write": {
+      "说明": "【兼容别名】分组写入多个 CSV 文件，实际调用 file_ops.export_split",
       "group_col": "str|list — 必填，按照哪些列进行分组拆分",
       "out_dir": "str — 必填，输出文件夹路径",
       "name_col": "str — 可选，作为输出文件名的列，默认使用 group_col",
@@ -100,10 +103,12 @@
       "target_val_col": "str — 必填，当前数据流中将被修改或赋值的目标列"
     },
     "write_excel": {
+      "说明": "【兼容别名】写入 Excel 文件，实际调用 file_ops.export_excel",
       "file": "str — 必填，保存的Excel文件路径，例如 'output/result.xlsx'",
       "sheet": "str — 可选，工作表名称，默认 'Sheet1'"
     },
     "write_csv": {
+      "说明": "【兼容别名】写入 CSV 文件，实际调用 file_ops.export_csv",
       "file": "str — 必填，保存的CSV文件路径",
       "clean_newlines": "bool — 可选，是否清除文本中的换行符以防止错行，默认 true",
       "encoding": "str — 可选，保存编码，默认 'utf-8-sig'"
@@ -145,6 +150,7 @@
       "mode": "str — 可选，提取模式：'head'(取前n条)、'tail'(取后n条)、'both'(首尾各取n条)，默认 'head'"
     },
     "merge_excel_files": {
+      "说明": "【兼容别名】合并多个 Excel 文件，实际调用 file_ops.merge_excel",
       "source_step": "str — 可选，文件扫描结果的步骤ID，默认使用 last_result",
       "sheet": "str|int — 可选，工作表名称或索引，默认 0",
       "header_row": "int — 可选，表头所在行（从1开始），默认 1",
@@ -210,6 +216,38 @@
   },
   "plug_in": {
     "type": "str — 可选，插件类型，目前支持 'csvtohtml'（将当前流中的 CSV 转换为 HTML），默认为 'csvtohtml'。"
+  },
+  "import_excel": {
+    "file": "str — 必填，Excel文件路径（基于 base_dir），例如 'data/input.xlsx'",
+    "sheet": "str|int — 可选，工作表名称或索引，默认 0",
+    "header_row": "int — 可选，表头所在行（从1开始），默认 1"
+  },
+  "import_csv": {
+    "file": "str — 必填，CSV文件路径（基于 base_dir），例如 'data/input.csv'",
+    "delimiter": "str — 可选，分隔符，默认 ','",
+    "encoding": "str — 可选，文件编码，可填 'auto' 自动推断，或如 'utf-8', 'gbk'，默认 'utf-8'"
+  },
+  "export_excel": {
+    "file": "str — 必填，保存的Excel文件路径，例如 'output/result.xlsx'",
+    "sheet": "str — 可选，工作表名称，默认 'Sheet1'"
+  },
+  "export_csv": {
+    "file": "str — 必填，保存的CSV文件路径",
+    "clean_newlines": "bool — 可选，是否清除文本中的换行符以防止错行，默认 true",
+    "encoding": "str — 可选，保存编码，默认 'utf-8-sig'"
+  },
+  "export_split": {
+    "group_col": "str|list — 必填，按照哪些列进行分组拆分",
+    "out_dir": "str — 必填，输出文件夹路径",
+    "name_col": "str — 可选，作为输出文件名的列，默认使用 group_col",
+    "encoding": "str — 可选，输出文件的编码，默认 'utf-8-sig'"
+  },
+  "merge_excel": {
+    "source_step": "str — 可选，文件扫描结果的步骤ID，默认使用 last_result",
+    "sheet": "str|int — 可选，工作表名称或索引，默认 0",
+    "header_row": "int — 可选，表头所在行（从1开始），默认 1",
+    "dedup_columns": "list — 可选，去重依据的列名列表",
+    "keep_columns": "list — 可选，保留的辅助列，默认不保留 _source_file"
   }
   },
   "attemper_ops": {

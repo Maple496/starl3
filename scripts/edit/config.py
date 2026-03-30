@@ -41,6 +41,11 @@ def find_python_exe():
 
 def find_starl3_runner():
     """查找 StarL3 运行器"""
+    # 0. 优先检查环境变量（从托盘程序启动时设置）
+    tray_exe = os.environ.get('STARL3_TRAY_EXE')
+    if tray_exe and os.path.exists(tray_exe):
+        return tray_exe, None
+    
     # BASE_DIR 是 scripts/ 目录
     # 1. 优先查找可执行文件 (scripts 同级目录)
     exe_path = os.path.join(os.path.dirname(BASE_DIR), "main_starl3.exe")
@@ -123,12 +128,12 @@ def parse_args(args: List[str]) -> tuple:
 PROFILE_KEY, CLI_CONFIG_PATH = parse_args(sys.argv[1:])
 ACTIVE_PROFILE = get_profile(PROFILE_KEY)
 
-# 运行时设置（路径留空，由用户首次运行时选择）
+# 运行时设置
 RUN_SETTINGS = {
     "config_path": CLI_CONFIG_PATH or ACTIVE_PROFILE["config_path"],
-    "exe": "",
-    "py": "",
-    "python_exe": ""
+    "exe": _AUTO_EXE or "",  # 自动检测到的运行器（优先从环境变量获取托盘程序）
+    "py": _AUTO_PY or "",
+    "python_exe": _AUTO_PYTHON
 }
 
 # 列相关配置

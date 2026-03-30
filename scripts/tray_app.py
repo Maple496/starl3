@@ -82,34 +82,19 @@ class StarL3TrayApp:
     def on_new_config(self, icon, item):
         """新建配置文件 - 打开编辑器"""
         def open_editor():
-            import subprocess
-            import sys
-            
-            # 获取 main_edit.py 的路径
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            editor_path = os.path.join(base_dir, "main_edit.py")
-            
-            if not os.path.exists(editor_path):
-                print(f"[ERROR] 编辑器不存在: {editor_path}")
-                return
-            
-            # 查找可用的 Python 解释器
-            python_exe = sys.executable
-            if not python_exe or not os.path.exists(python_exe):
-                # 尝试虚拟环境
-                venv_python = os.path.join(os.path.dirname(base_dir), "venv", "Scripts", "python.exe")
-                if os.path.exists(venv_python):
-                    python_exe = venv_python
-                else:
-                    python_exe = "python"
-            
             try:
-                # 启动编辑器，使用新建文件模式
-                cmd = [python_exe, editor_path]
-                subprocess.Popen(cmd, cwd=base_dir)
-                print(f"[INFO] 已启动编辑器: {editor_path}")
+                # 设置环境变量，让编辑器知道运行器是当前exe
+                exe_path = sys.executable
+                os.environ['STARL3_TRAY_EXE'] = exe_path
+                print(f"[INFO] 启动编辑器，运行器: {exe_path}")
+                
+                # 直接导入并启动编辑器
+                from main_edit import run_editor
+                run_editor()
             except Exception as e:
                 print(f"[ERROR] 启动编辑器失败: {e}")
+                import traceback
+                traceback.print_exc()
         
         # 在单独线程中运行
         threading.Thread(target=open_editor, daemon=True).start()
@@ -118,6 +103,19 @@ class StarL3TrayApp:
         """查看任务管理界面"""
         if self.web_port:
             webbrowser.open(f"http://127.0.0.1:{self.web_port}")
+    
+    def on_edit_dynamic_configs(self, icon, item):
+        """编辑动态配置"""
+        def open_config_editor():
+            try:
+                from edit.dynamic_config_editor import run_editor
+                run_editor()
+            except Exception as e:
+                print(f"[ERROR] 启动配置编辑器失败: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        threading.Thread(target=open_config_editor, daemon=True).start()
     
     def on_exit(self, icon, item):
         """退出程序"""
@@ -142,6 +140,10 @@ class StarL3TrayApp:
             MenuItem(
                 "新建配置文件",
                 self.on_new_config
+            ),
+            MenuItem(
+                "编辑动态配置",
+                self.on_edit_dynamic_configs
             ),
             MenuItem(
                 "查看任务管理",

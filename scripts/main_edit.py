@@ -113,7 +113,9 @@ class ConfigHandler(SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
       
     def log_message(self, format, *args): pass
-if __name__ == '__main__':
+
+def run_editor():
+    """运行编辑器（可被外部调用）"""
     utils.ensure_config_exists()
     port = 5001
     while True:
@@ -124,6 +126,11 @@ if __name__ == '__main__':
             port += 1
     url = f"http://127.0.0.1:{port}"
     print(f"[{ACTIVE_PROFILE['title']}] {url}  (profile={PROFILE_KEY})")
-    if sys.platform == 'win32': os.startfile(url)
-    else: webbrowser.open(url)
+    if sys.platform == 'win32': 
+        os.startfile(url)
+    else: 
+        webbrowser.open(url)
     server.serve_forever()
+
+if __name__ == '__main__':
+    run_editor()

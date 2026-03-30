@@ -59,57 +59,18 @@ def _clean_newlines(df: pd.DataFrame) -> pd.DataFrame:
     }
     return df.assign(**replacements)
 
-@op("read_excel", category="elt", description="读取 Excel 文件")
+@op("read_excel", category="elt", description="读取 Excel 文件（兼容别名，实际调用 file_ops.import_excel）")
 def op_read_excel(ctx, params) -> pd.DataFrame:
-    """读取 Excel 文件"""
-    file_path = _resolve_path(params["file"], ctx)
-    
-    # 如果路径已经是绝对路径，直接使用；否则使用 safe_join
-    if os.path.isabs(file_path):
-        fp = file_path
-    else:
-        fp = safe_join(ctx["base_dir"], file_path)
-    
-    sheet = params.get("sheet", 0)
-    header = params.get("header_row", 1) - 1
-    return pd.read_excel(fp, sheet_name=sheet, header=header)
+    """读取 Excel 文件 - 兼容别名，调用 file_ops.import_excel"""
+    from ops.file_ops import op_import_excel
+    return op_import_excel(ctx, params)
 
 
-@op("read_csv", category="elt", description="读取 CSV 文件")
+@op("read_csv", category="elt", description="读取 CSV 文件（兼容别名，实际调用 file_ops.import_csv）")
 def op_read_csv(ctx, params) -> pd.DataFrame:
-    """读取 CSV 文件 - 优化编码检测"""
-    file_path = _resolve_path(params["file"], ctx)
-    
-    # 如果路径已经是绝对路径，直接使用；否则使用 safe_join
-    if os.path.isabs(file_path):
-        fp = file_path
-    else:
-        fp = safe_join(ctx["base_dir"], file_path)
-    
-    delim = params.get("delimiter", ",")
-    enc = params.get("encoding", "utf-8")
-    
-    if enc.strip().lower() == "auto":
-        detected = _detect_encoding(fp)
-        encs = [detected] + [e for e in ENCODING_PRIORITY if e != detected]
-    else:
-        encs = [enc.strip()] + [e for e in ENCODING_PRIORITY if e != enc.strip().lower()]
-    
-    seen = set()
-    unique_encs = []
-    for e in encs:
-        e_lower = e.lower()
-        if e_lower not in seen:
-            seen.add(e_lower)
-            unique_encs.append(e)
-    
-    for encoding in unique_encs:
-        try:
-            return pd.read_csv(fp, encoding=encoding, delimiter=delim)
-        except (UnicodeDecodeError, UnicodeError):
-            continue
-    
-    return pd.read_csv(fp, encoding="latin-1", delimiter=delim)
+    """读取 CSV 文件 - 兼容别名，调用 file_ops.import_csv"""
+    from ops.file_ops import op_import_csv
+    return op_import_csv(ctx, params)
 
 
 @op("filter", category="elt", description="过滤数据")
@@ -266,47 +227,11 @@ def op_overlay(ctx, params) -> pd.DataFrame:
     return result
 
 
-@op("split_write", category="elt", description="分组写入")
+@op("split_write", category="elt", description="分组写入（兼容别名，实际调用 file_ops.export_split）")
 def op_split_write(ctx, params) -> pd.DataFrame:
-    """分组写入 - 增强编码处理"""
-    df = ctx["last_result"]
-    gc = params["group_col"]
-    nc = params.get("name_col", gc)
-    out_dir = _resolve_path(params["out_dir"], ctx)
-    
-    # 如果路径已经是绝对路径，直接使用；否则拼接基础目录
-    if os.path.isabs(out_dir):
-        out = out_dir
-    else:
-        out = os.path.join(ctx["base_dir"], out_dir)
-    
-    os.makedirs(out, exist_ok=True)
-    
-    if params.get("clean_newlines", True):
-        df = _clean_newlines(df)
-    
-    encoding = params.get("encoding", DEFAULT_ENCODING)
-    
-    failed_files = []
-    for name, group in df.groupby(gc):
-        filename = f"{group[nc].iloc[0]}.csv"
-        filepath = os.path.join(out, filename)
-        
-        try:
-            group.to_csv(filepath, index=False, encoding=encoding, quoting=1)
-        except UnicodeEncodeError as e:
-            logger.warning(f"使用 {encoding} 编码写入 {filename} 失败，尝试使用 utf-8-sig")
-            try:
-                group.to_csv(filepath, index=False, encoding='utf-8-sig', quoting=1)
-                logger.info(f"已成功使用 utf-8-sig 编码写入: {filename}")
-            except Exception as e2:
-                logger.error(f"写入 {filename} 失败: {e2}")
-                failed_files.append((filename, str(e2)))
-    
-    if failed_files:
-        logger.warning(f"以下文件写入失败: {failed_files}")
-    
-    return df
+    """分组写入 - 兼容别名，调用 file_ops.export_split"""
+    from ops.file_ops import op_export_split
+    return op_export_split(ctx, params)
 
 
 @op("fuzzy_override", category="elt", description="模糊匹配覆盖")
@@ -336,59 +261,18 @@ def op_fuzzy_override(ctx, params) -> pd.DataFrame:
     return result
 
 
-@op("write_excel", category="elt", description="写入 Excel")
+@op("write_excel", category="elt", description="写入 Excel（兼容别名，实际调用 file_ops.export_excel）")
 def op_write_excel(ctx, params) -> pd.DataFrame:
-    """写入 Excel"""
-    file_path = _resolve_path(params["file"], ctx)
-    
-    # 如果路径已经是绝对路径，直接使用；否则使用 safe_join
-    if os.path.isabs(file_path):
-        fp = file_path
-    else:
-        fp = safe_join(ctx["base_dir"], file_path)
-    
-    ensure_dir_exists(fp)
-    
-    df = ctx["last_result"]
-    sheet = params.get("sheet", "Sheet1")
-    df.to_excel(fp, sheet_name=sheet, index=False)
-    return df
+    """写入 Excel - 兼容别名，调用 file_ops.export_excel"""
+    from ops.file_ops import op_export_excel
+    return op_export_excel(ctx, params)
 
 
-@op("write_csv", category="elt", description="写入 CSV")
+@op("write_csv", category="elt", description="写入 CSV（兼容别名，实际调用 file_ops.export_csv）")
 def op_write_csv(ctx, params) -> pd.DataFrame:
-    """写入 CSV - 增强编码处理"""
-    file_path = _resolve_path(params["file"], ctx)
-    
-    # 如果路径已经是绝对路径，直接使用；否则使用 safe_join
-    if os.path.isabs(file_path):
-        fp = file_path
-    else:
-        fp = safe_join(ctx["base_dir"], file_path)
-    
-    ensure_dir_exists(fp)
-    
-    df = ctx["last_result"]
-    
-    if params.get("clean_newlines", True):
-        df = _clean_newlines(df)
-    
-    # 获取编码参数
-    encoding = params.get("encoding", DEFAULT_ENCODING)
-    
-    # 尝试写入，如果失败则使用更宽松的编码策略
-    try:
-        df.to_csv(fp, encoding=encoding, index=False, quoting=1)
-    except UnicodeEncodeError as e:
-        logger.warning(f"使用 {encoding} 编码失败，尝试使用 utf-8-sig: {e}")
-        try:
-            df.to_csv(fp, encoding='utf-8-sig', index=False, quoting=1)
-            logger.info(f"已成功使用 utf-8-sig 编码写入: {os.path.basename(fp)}")
-        except Exception as e2:
-            logger.error(f"写入 CSV 失败: {e2}")
-            raise
-    
-    return df
+    """写入 CSV - 兼容别名，调用 file_ops.export_csv"""
+    from ops.file_ops import op_export_csv
+    return op_export_csv(ctx, params)
 
 
 @op("rank", category="elt", description="计算排名")

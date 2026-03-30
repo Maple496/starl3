@@ -23,6 +23,10 @@ a = Analysis(
         'ops.datavisual_ops', 'ops.elt_ops', 'ops.email_listener_ops', 
         'ops.email_ops', 'ops.file_ops', 'ops.include_ops', 'ops.input_ops',
         'ops.network_listener_ops', 'ops.scheduler_ops', 'ops.web_framework_ops',
+        # edit 模块
+        'edit', 'edit.config', 'edit.utils', 'edit.templates',
+        'edit.dynamic_config_editor',
+        'main_edit',
     ],
     hookspath=[],
     hooksconfig={},
