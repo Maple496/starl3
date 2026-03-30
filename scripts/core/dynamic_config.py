@@ -355,22 +355,27 @@ class DynamicConfigManager:
             return []
         
         configs = []
-        try:
-            with open(self.csv_index_path, 'r', encoding='utf-8-sig') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    configs.append({
-                        'pipeline': row.get('pipeline', ''),
-                        'config_name': row.get('config_name', ''),
-                        'description': row.get('description', ''),
-                        'value_type': row.get('value_type', ''),
-                        'value_preview': row.get('value_preview', ''),
-                        'json_file': row.get('json_file', ''),
-                        'updated_at': row.get('updated_at', ''),
-                        'note': row.get('note', '')
-                    })
-        except (IOError, csv.Error):
-            pass
+        encodings = ['utf-8-sig', 'gbk', 'utf-8', 'latin-1']
+        
+        for encoding in encodings:
+            try:
+                with open(self.csv_index_path, 'r', encoding=encoding) as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        configs.append({
+                            'pipeline': row.get('pipeline', ''),
+                            'config_name': row.get('config_name', ''),
+                            'description': row.get('description', ''),
+                            'value_type': row.get('value_type', ''),
+                            'value_preview': row.get('value_preview', ''),
+                            'json_file': row.get('json_file', ''),
+                            'updated_at': row.get('updated_at', ''),
+                            'note': row.get('note', '')
+                        })
+                break  # 成功读取则跳出
+            except (IOError, csv.Error, UnicodeDecodeError):
+                configs = []  # 重置并尝试下一个编码
+                continue
         
         return configs
     
