@@ -132,12 +132,12 @@ def clear_all_configs():
 
 
 def open_config_index():
-    """打开 CSV 索引文件"""
+    """打开 CSV 配置文件"""
     from core.dynamic_config import get_config_manager
     
     manager = get_config_manager()
-    manager.open_csv_index()
-    print(f"正在打开 CSV 索引文件: {manager.csv_index_path}")
+    manager.open_csv()
+    print(f"正在打开 CSV: {manager.csv_path}")
 
 
 def print_help():
