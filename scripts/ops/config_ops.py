@@ -513,6 +513,12 @@ def op_select_resource(ctx, params):
         # 设置嵌套值
         loader._set_nested_value(loader.external_configs[config_name], config_path, selected)
         result["stored_to"] = save_to
+        
+        # 同时存入 ctx，让后续步骤可以直接访问
+        if config_name not in ctx:
+            ctx[config_name] = {}
+        if isinstance(ctx[config_name], dict):
+            loader._set_nested_value(ctx[config_name], config_path, selected)
     
     return result
 

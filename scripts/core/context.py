@@ -154,7 +154,23 @@ class PipelineContext:
     
     # 兼容 dict-like 访问
     def __getitem__(self, key: str) -> Any:
-        """支持 ctx[key] 访问"""
+        """支持 ctx[key] 访问，支持嵌套键如 'paths.source_dir'"""
+        # 处理嵌套键路径
+        if "." in key:
+            parts = key.split(".")
+            current = self
+            for part in parts:
+                if isinstance(current, PipelineContext):
+                    current = current._get_single_key(part)
+                elif isinstance(current, dict):
+                    current = current[part]
+                else:
+                    raise KeyError(f"无法访问 '{key}' 中的 '{part}'")
+            return current
+        return self._get_single_key(key)
+    
+    def _get_single_key(self, key: str) -> Any:
+        """获取单个键的值"""
         if key in ["base_dir", "last_result", "results"]:
             return getattr(self, key)
         return self._storage[key]
@@ -171,6 +187,50 @@ class PipelineContext:
         if key in ["base_dir", "last_result", "results"]:
             return True
         return key in self._storage
+    
+    def setdefault(self, key: str, default: Any) -> Any:
+        """支持 ctx.setdefault() 语义"""
+        if key in ["base_dir", "last_result", "results"]:
+            current = getattr(self, key)
+            if current == "" or current is None or current == {}:
+                setattr(self, key, default)
+                return default
+            return current
+        else:
+            return self._storage.setdefault(key, default)
+    
+    def copy(self) -> 'PipelineContext':
+        """深拷贝上下文"""
+        import copy
+        new_ctx = PipelineContext(
+            base_dir=self.base_dir,
+            last_result=copy.deepcopy(self.last_result),
+            results=copy.deepcopy(self.results),
+            metadata=copy.deepcopy(self.metadata),
+            step_history=copy.deepcopy(self.step_history)
+        )
+        new_ctx._storage = copy.deepcopy(self._storage)
+        return new_ctx
+    
+    def items(self):
+        """支持 ctx.items() 遍历"""
+        result = {
+            "base_dir": self.base_dir,
+            "last_result": self.last_result,
+            "results": self.results,
+            "metadata": self.metadata,
+            "step_history": self.step_history
+        }
+        result.update(self._storage)
+        return result.items()
+    
+    def keys(self):
+        """支持 ctx.keys() 遍历"""
+        return ["base_dir", "last_result", "results", "metadata", "step_history"] + list(self._storage.keys())
+    
+    def values(self):
+        """支持 ctx.values() 遍历"""
+        return [self.base_dir, self.last_result, self.results, self.metadata, self.step_history] + list(self._storage.values())
     
     def get_executed_summary(self) -> str:
         """获取执行摘要"""

@@ -108,13 +108,13 @@ def ensure_dir_exists(path: str) -> None:
 
 
 
-def _resolve_path(path: str, ctx: dict) -> str:
+def _resolve_path(path: str, ctx) -> str:
     """
     解析路径中的变量引用，如 ${paths.source_file}
     
     Args:
         path: 原始路径，可能包含变量引用，如 "${paths.output_dir}/result.csv"
-        ctx: 上下文字典，包含变量值
+        ctx: 上下文字典或 PipelineContext 对象，包含变量值
         
     Returns:
         解析后的实际路径
@@ -127,13 +127,23 @@ def _resolve_path(path: str, ctx: dict) -> str:
     if not path or not isinstance(path, str):
         return path
     
+    def _is_mapping(obj):
+        """检查对象是否支持 dict-like 访问"""
+        return isinstance(obj, dict) or hasattr(obj, '__getitem__')
+    
+    def _get_item(obj, key):
+        """从对象获取值"""
+        if isinstance(obj, dict):
+            return obj[key]
+        return obj[key]  # 使用 __getitem__
+    
     def replace_var(match):
         var_path = match.group(1)
         parts = var_path.split('.')
         current = ctx
         for part in parts:
-            if isinstance(current, dict) and part in current:
-                current = current[part]
+            if _is_mapping(current) and part in current:
+                current = _get_item(current, part)
             else:
                 return match.group(0)  # 变量不存在，保持原样
         return str(current) if current is not None else match.group(0)
