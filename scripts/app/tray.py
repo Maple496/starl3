@@ -122,9 +122,13 @@ class StarL3TrayApp:
         
         return Menu(
             MenuItem(
-                "选择配置文件",
-                self.on_select_config,
+                "查看任务管理",
+                self.on_view_tasks,
                 default=True  # 双击图标时的默认操作
+            ),
+            MenuItem(
+                "选择配置文件",
+                self.on_select_config
             ),
             MenuItem(
                 "新建配置文件",
@@ -133,10 +137,6 @@ class StarL3TrayApp:
             MenuItem(
                 "编辑动态配置",
                 self.on_edit_dynamic_configs
-            ),
-            MenuItem(
-                "查看任务管理",
-                self.on_view_tasks
             ),
             Menu.SEPARATOR,
             MenuItem(

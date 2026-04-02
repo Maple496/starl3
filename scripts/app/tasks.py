@@ -236,9 +236,12 @@ class TaskManager:
             return self._tasks.get(task_id)
     
     def list_tasks(self) -> list:
-        """列出所有任务"""
+        """列出所有任务（按启动时间倒序，最新的在最前面）"""
         with self._tasks_lock:
-            return [task.to_dict() for task in self._tasks.values()]
+            tasks = list(self._tasks.values())
+            # 按启动时间倒序排列，最新的任务在最前面
+            tasks.sort(key=lambda t: t.start_time or datetime.min, reverse=True)
+            return [task.to_dict() for task in tasks]
     
     # ========== 配置库管理 ==========
     
