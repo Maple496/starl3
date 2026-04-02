@@ -73,7 +73,7 @@ def create_app() -> Flask:
     
     @app.route('/api/tasks', methods=['POST'])
     def create_task():
-        """创建新任务"""
+        """创建新任务（带去重检查）"""
         data = request.get_json()
         if not data or 'config_path' not in data:
             return jsonify({"success": False, "error": "缺少 config_path 参数"}), 400
@@ -82,8 +82,43 @@ def create_app() -> Flask:
         if not os.path.exists(config_path):
             return jsonify({"success": False, "error": "配置文件不存在"}), 400
         
-        task_id = task_manager.start_task(config_path)
-        return jsonify({"success": True, "data": {"task_id": task_id}})
+        task_id, is_new = task_manager.start_task(config_path)
+        return jsonify({
+            "success": True, 
+            "data": {
+                "task_id": task_id, 
+                "is_new": is_new
+            }
+        })
+    
+    @app.route('/api/configs', methods=['GET'])
+    def list_configs():
+        """获取配置库中的所有配置文件"""
+        configs = task_manager.list_configs()
+        return jsonify({"success": True, "data": configs})
+    
+    @app.route('/api/configs/run', methods=['POST'])
+    def run_config():
+        """运行配置库中的配置文件"""
+        data = request.get_json()
+        if not data or 'config_name' not in data:
+            return jsonify({"success": False, "error": "缺少 config_name 参数"}), 400
+        
+        config_name = data['config_name']
+        config_path = task_manager.get_config_path(config_name)
+        
+        if not os.path.exists(config_path):
+            return jsonify({"success": False, "error": "配置文件不存在"}), 404
+        
+        task_id, is_new = task_manager.start_task(config_path)
+        return jsonify({
+            "success": True, 
+            "data": {
+                "task_id": task_id, 
+                "is_new": is_new,
+                "config_name": config_name
+            }
+        })
     
     @app.route('/api/tasks/<task_id>/pause', methods=['POST'])
     def pause_task(task_id):

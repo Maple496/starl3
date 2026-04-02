@@ -378,6 +378,119 @@
         .btn-info:hover {
             background: #0284c7;
         }
+        
+        /* 配置库样式 */
+        .config-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        .config-section-header {
+            background: #f8fafc;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+            color: #475569;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .config-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .config-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.2s;
+        }
+        
+        .config-item:hover {
+            background: #f8fafc;
+        }
+        
+        .config-item:last-child {
+            border-bottom: none;
+        }
+        
+        .config-info {
+            flex: 1;
+        }
+        
+        .config-name {
+            font-weight: 500;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+        
+        .config-meta {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        
+        .config-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .config-actions .btn {
+            padding: 6px 14px;
+            font-size: 12px;
+        }
+        
+        .empty-config {
+            text-align: center;
+            padding: 40px 20px;
+            color: #94a3b8;
+        }
+        
+        /* 确认对话框 */
+        .confirm-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .confirm-modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .confirm-modal-header {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .confirm-modal-body {
+            color: #64748b;
+            margin-bottom: 20px;
+        }
+        
+        .confirm-modal-footer {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
     </style>
 </head>
 <body>
@@ -387,9 +500,20 @@
             <p>管理和监控所有 Pipeline 任务</p>
         </header>
         
+        <!-- 配置库区域 -->
+        <div class="config-section">
+            <div class="config-section-header">
+                📁 配置库
+                <span style="font-size: 12px; color: #94a3b8; font-weight: normal;">(C:\Users\Administrator\AppData\Local\starl3\config_lib)</span>
+            </div>
+            <div class="config-list" id="configList">
+                <div class="empty-config">正在加载配置...</div>
+            </div>
+        </div>
+        
         <div class="toolbar">
             <div>
-                <button class="btn btn-primary" onclick="refreshTasks()">
+                <button class="btn btn-primary" onclick="refreshAll()">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
                     </svg>

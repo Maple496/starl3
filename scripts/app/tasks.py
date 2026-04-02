@@ -3,13 +3,33 @@ StarL3 任务管理器
 管理多个 Pipeline 任务的并发执行
 """
 
+import json
+import os
 import threading
 import uuid
 import time
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Callable
+from typing import Optional, Dict, Callable, List, Tuple
 from datetime import datetime
+
+
+# 配置库目录 - 用户配置存储路径
+CONFIG_LIB_DIR = os.path.join(os.path.expanduser('~'), 'AppData', 'Local', 'starl3', 'config_lib')
+
+# 确保配置库目录存在
+def _ensure_config_lib():
+    """确保配置库目录存在"""
+    global CONFIG_LIB_DIR
+    try:
+        os.makedirs(CONFIG_LIB_DIR, exist_ok=True)
+    except Exception as e:
+        print(f"[警告] 无法创建配置库目录 {CONFIG_LIB_DIR}: {e}")
+        # 回退到当前目录
+        CONFIG_LIB_DIR = os.path.join(os.getcwd(), 'config_lib')
+        os.makedirs(CONFIG_LIB_DIR, exist_ok=True)
+
+_ensure_config_lib()
 
 
 class TaskStatus(Enum):
@@ -102,7 +122,7 @@ class TaskManager:
         """设置步骤进度回调函数 callback(task_id, step_name, progress)"""
         self._step_callback = callback
     
-    def start_task(self, config_path: str) -> str:
+    def start_task(self, config_path: str) -> Tuple[str, bool]:
         """
         启动新任务
         
@@ -110,9 +130,20 @@ class TaskManager:
             config_path: 配置文件路径
             
         Returns:
-            task_id: 任务ID
+            (task_id, is_new): 任务ID 和 是否是新创建的任务
         """
         import os
+        
+        # 规范化路径用于比较
+        abs_config_path = os.path.abspath(config_path)
+        
+        # 检查是否已有相同配置的任务在运行
+        with self._tasks_lock:
+            for existing_task in self._tasks.values():
+                if (os.path.abspath(existing_task.config_path) == abs_config_path and 
+                    existing_task.status in [TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.PAUSED]):
+                    # 已有相同配置的任务在运行
+                    return existing_task.id, False
         
         # 生成任务ID
         task_id = str(uuid.uuid4())[:8]
@@ -160,7 +191,7 @@ class TaskManager:
             self._tasks[task_id] = task
         
         thread.start()
-        return task_id
+        return task_id, True
     
     def pause_task(self, task_id: str) -> bool:
         """暂停任务"""
@@ -208,6 +239,59 @@ class TaskManager:
         """列出所有任务"""
         with self._tasks_lock:
             return [task.to_dict() for task in self._tasks.values()]
+    
+    # ========== 配置库管理 ==========
+    
+    def list_configs(self) -> List[Dict]:
+        """列出配置库中的所有配置文件"""
+        configs = []
+        try:
+            if os.path.exists(CONFIG_LIB_DIR):
+                for filename in os.listdir(CONFIG_LIB_DIR):
+                    if filename.endswith('.json'):
+                        filepath = os.path.join(CONFIG_LIB_DIR, filename)
+                        stat = os.stat(filepath)
+                        configs.append({
+                            "name": filename,
+                            "path": filepath,
+                            "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                            "size": stat.st_size
+                        })
+            # 按修改时间排序，最新的在前
+            configs.sort(key=lambda x: x["modified"], reverse=True)
+        except Exception as e:
+            print(f"[错误] 读取配置库失败: {e}")
+        return configs
+    
+    def get_config_path(self, config_name: str) -> str:
+        """获取配置文件的完整路径"""
+        return os.path.join(CONFIG_LIB_DIR, config_name)
+    
+    def create_default_config(self, config_name: str) -> str:
+        """创建默认配置文件"""
+        filepath = os.path.join(CONFIG_LIB_DIR, config_name)
+        if not config_name.endswith('.json'):
+            filepath += '.json'
+        
+        default_content = [
+            ["", "10", "log", "{}", "Y", ""]
+        ]
+        
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(default_content, f, ensure_ascii=False, indent=2)
+        
+        return filepath
+    
+    def delete_config(self, config_name: str) -> bool:
+        """删除配置文件"""
+        filepath = os.path.join(CONFIG_LIB_DIR, config_name)
+        try:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+                return True
+        except Exception as e:
+            print(f"[错误] 删除配置文件失败: {e}")
+        return False
     
     def remove_task(self, task_id: str) -> bool:
         """移除已完成的任务"""

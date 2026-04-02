@@ -266,10 +266,150 @@ async function refreshTasks() {
     renderTasks(tasks);
 }
 
+// ========== 配置库功能 ==========
+
+// 获取配置列表
+async function getConfigs() {
+    const result = await apiRequest('/api/configs');
+    return result.success ? result.data : [];
+}
+
+// 渲染配置列表
+function renderConfigs(configs) {
+    const container = document.getElementById('configList');
+    
+    if (configs.length === 0) {
+        container.innerHTML = `
+            <div class="empty-config">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 12px; opacity: 0.3;">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                </svg>
+                <p>配置库为空</p>
+                <p style="font-size: 12px;">配置文件将保存在 C:\Users\Administrator\AppData\Local\starl3\config_lib</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = configs.map(config => {
+        const date = new Date(config.modified).toLocaleString('zh-CN');
+        const size = (config.size / 1024).toFixed(1);
+        
+        return `
+            <div class="config-item">
+                <div class="config-info">
+                    <div class="config-name">${config.name}</div>
+                    <div class="config-meta">修改时间: ${date} · ${size} KB</div>
+                </div>
+                <div class="config-actions">
+                    <button class="btn btn-primary" onclick="runConfig('${config.name}')">▶ 运行</button>
+                    <button class="btn btn-success" onclick="editConfig('${config.name}')">✏️ 编辑</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 运行配置
+async function runConfig(configName) {
+    const result = await apiRequest('/api/configs/run', {
+        method: 'POST',
+        body: JSON.stringify({ config_name: configName })
+    });
+    
+    if (result.success) {
+        if (result.data.is_new) {
+            showToast(`任务已启动: ${result.data.task_id}`);
+        } else {
+            // 已有任务在运行，显示确认对话框
+            showConfirmDialog(
+                '配置已在运行',
+                `${configName} 已有运行中的任务 (ID: ${result.data.task_id})`,
+                [
+                    { text: '查看任务', action: () => { window.location.href = `#task-${result.data.task_id}`; } },
+                    { text: '强制重启', action: () => { forceRestart(configName); } },
+                    { text: '取消', action: null }
+                ]
+            );
+        }
+        refreshAll();
+    } else {
+        showToast(result.error || '启动失败', 'error');
+    }
+}
+
+// 强制重启配置（先停止再运行）
+async function forceRestart(configName) {
+    // 先找到并停止现有任务
+    const tasks = await getTasks();
+    const runningTask = tasks.find(t => 
+        t.config_path.includes(configName) && 
+        ['running', 'paused', 'pending'].includes(t.status)
+    );
+    
+    if (runningTask) {
+        await stopTask(runningTask.id);
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    // 重新运行
+    const result = await apiRequest('/api/configs/run', {
+        method: 'POST',
+        body: JSON.stringify({ config_name: configName })
+    });
+    
+    if (result.success) {
+        showToast(`任务已重新启动: ${result.data.task_id}`);
+        refreshAll();
+    }
+}
+
+// 编辑配置
+function editConfig(configName) {
+    window.open(`/editor?config=${encodeURIComponent('C:\\Users\\Administrator\\AppData\\Local\\starl3\\config_lib\\' + configName)}`, '_blank');
+}
+
+// 刷新配置列表
+async function refreshConfigs() {
+    const configs = await getConfigs();
+    renderConfigs(configs);
+}
+
+// 刷新所有（任务+配置）
+async function refreshAll() {
+    await Promise.all([refreshTasks(), refreshConfigs()]);
+}
+
+// 显示确认对话框
+function showConfirmDialog(title, message, buttons) {
+    // 移除已存在的对话框
+    const existingModal = document.querySelector('.confirm-modal');
+    if (existingModal) existingModal.remove();
+    
+    const modal = document.createElement('div');
+    modal.className = 'confirm-modal';
+    
+    const buttonsHtml = buttons.map((btn, index) => {
+        const className = index === 0 ? 'btn btn-primary' : (index === 1 ? 'btn btn-warning' : 'btn');
+        return `<button class="${className}" onclick="this.closest('.confirm-modal').remove(); ${btn.action ? `(${btn.action})()` : ''}">${btn.text}</button>`;
+    }).join('');
+    
+    modal.innerHTML = `
+        <div class="confirm-modal-content">
+            <div class="confirm-modal-header">${title}</div>
+            <div class="confirm-modal-body">${message}</div>
+            <div class="confirm-modal-footer">${buttonsHtml}</div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
 // 启动自动刷新
 function startAutoRefresh() {
-    refreshTasks();
-    refreshInterval = setInterval(refreshTasks, 2000);  // 每2秒刷新
+    refreshAll();
+    refreshInterval = setInterval(refreshAll, 2000);  // 每2秒刷新
 }
 
 // 停止自动刷新
