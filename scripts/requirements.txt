@@ -1,0 +1,18 @@
+# StarL3 依赖列表
+# 安装: pip install -r requirements.txt
+
+# Web 框架
+flask>=2.0.0
+flask-cors>=4.0.0
+
+# 系统托盘
+pystray>=0.19.0
+pillow>=10.0.0
+
+# 数据处理
+pandas>=2.0.0
+numpy>=1.24.0
+openpyxl>=3.1.0
+
+# 打包工具
+pyinstaller>=6.0.0

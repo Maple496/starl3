@@ -123,7 +123,7 @@
     "选择输出目录",
     "30",
     "select_resource",
-    "{\"mode\":\"folder\",\"title\":\"请选择数据输出目录\",\"save_to\":\"paths.output_dir\",\"config_name\":\"elt_purchase_output_dir\",\"config_note\":\"采购数据处理-输出目录路径\",\"use_cache\":true,\"force_refresh\":false,\"validate_exists\":false}",
+    "{\"mode\":\"folder\",\"title\":\"请选择数据输出目录\",\"save_to\":\"paths.output_dir\",\"config_name\":\"elt_purchase_output_dir\",\"config_note\":\"采购数据处理-输出目录路径\",\"use_cache\":true,\"force_refresh\":false,\"validate_exists\":true}",
     "Y",
     "弹出窗口选择输出文件夹(支持缓存)"
   ],
@@ -491,7 +491,7 @@
     "选择HTML目录",
     "550",
     "select_resource",
-    "{\"mode\":\"folder\",\"title\":\"请选择HTML报告存放目录\",\"save_to\":\"paths.html_dir\",\"config_name\":\"elt_purchase_html_dir\",\"config_note\":\"采购数据处理-HTML报告存放目录\",\"use_cache\":true,\"force_refresh\":false,\"validate_exists\":false}",
+    "{\"mode\":\"folder\",\"title\":\"请选择HTML报告存放目录\",\"save_to\":\"paths.html_dir\",\"config_name\":\"elt_purchase_html_dir\",\"config_note\":\"采购数据处理-HTML报告存放目录\",\"use_cache\":true,\"force_refresh\":false,\"validate_exists\":true}",
     "Y",
     "选择HTML报告存放位置(支持缓存)"
   ],

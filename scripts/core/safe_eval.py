@@ -19,26 +19,17 @@ class SafeEvaluator:
     _cache_max_size = 128
     
     ALLOWED_OPERATORS = {
-        ast.Add: operator.add,
-        ast.Sub: operator.sub,
-        ast.Mult: operator.mul,
-        ast.Div: operator.truediv,
-        ast.FloorDiv: operator.floordiv,
-        ast.Mod: operator.mod,
-        ast.Pow: operator.pow,
-        ast.USub: operator.neg,
-        ast.UAdd: operator.pos,
-        ast.Eq: operator.eq,
-        ast.NotEq: operator.ne,
-        ast.Lt: operator.lt,
-        ast.LtE: operator.le,
-        ast.Gt: operator.gt,
-        ast.GtE: operator.ge,
-        ast.Not: operator.not_,
+        ast.Add: operator.add, ast.Sub: operator.sub,
+        ast.Mult: operator.mul, ast.Div: operator.truediv,
+        ast.FloorDiv: operator.floordiv, ast.Mod: operator.mod,
+        ast.Pow: operator.pow, ast.USub: operator.neg,
+        ast.UAdd: operator.pos, ast.Eq: operator.eq,
+        ast.NotEq: operator.ne, ast.Lt: operator.lt,
+        ast.LtE: operator.le, ast.Gt: operator.gt,
+        ast.GtE: operator.ge, ast.Not: operator.not_,
         ast.In: lambda x, y: x in y,
         ast.NotIn: lambda x, y: x not in y,
-        ast.Is: operator.is_,
-        ast.IsNot: operator.is_not,
+        ast.Is: operator.is_, ast.IsNot: operator.is_not,
     }
     
     ALLOWED_FUNCTIONS = {
@@ -65,8 +56,8 @@ class SafeEvaluator:
             raise SafeEvalError(f"语法错误: {e}")
         
         if len(SafeEvaluator._ast_cache) >= SafeEvaluator._cache_max_size:
-            keys = list(SafeEvaluator._ast_cache.keys())[:64]
-            for k in keys:
+            # 清理一半缓存
+            for k in list(SafeEvaluator._ast_cache.keys())[:64]:
                 del SafeEvaluator._ast_cache[k]
         
         SafeEvaluator._ast_cache[expression] = tree
@@ -75,7 +66,7 @@ class SafeEvaluator:
     def eval(self, expression: str, variables: Optional[Dict] = None) -> Any:
         """安全地评估表达式"""
         if not isinstance(expression, str):
-            raise SafeEvalError(f"表达式必须是字符串")
+            raise SafeEvalError("表达式必须是字符串")
         
         expression = expression.strip()
         if not expression:
@@ -131,22 +122,21 @@ class SafeEvaluator:
                 return all(values)
             elif isinstance(node.op, ast.Or):
                 return any(values)
-            raise SafeEvalError(f"不允许的布尔操作符")
+            raise SafeEvalError("不允许的布尔操作符")
         
         if isinstance(node, ast.Call):
             func = self._eval_node(node.func, variables)
             args = [self._eval_node(arg, variables) for arg in node.args]
             kwargs = {kw.arg: self._eval_node(kw.value, variables) for kw in node.keywords}
             if func not in self.builtins.values() and not callable(func):
-                raise SafeEvalError(f"不允许的函数调用")
+                raise SafeEvalError("不允许的函数调用")
             return func(*args, **kwargs)
         
         if isinstance(node, ast.Attribute):
             obj = self._eval_node(node.value, variables)
-            attr_name = node.attr
-            if hasattr(obj, attr_name):
-                return getattr(obj, attr_name)
-            raise SafeEvalError(f"'{type(obj).__name__}' 没有属性 '{attr_name}'")
+            if hasattr(obj, node.attr):
+                return getattr(obj, node.attr)
+            raise SafeEvalError(f"'{type(obj).__name__}' 没有属性 '{node.attr}'")
         
         if isinstance(node, ast.List):
             return [self._eval_node(e, variables) for e in node.elts]
@@ -182,13 +172,9 @@ def safe_eval(expression: str, variables: Optional[Dict] = None, extra_vars: Opt
 def eval_condition(expression: str, context: Dict, allowed_vars: Optional[set] = None) -> bool:
     """评估条件表达式"""
     try:
-        if allowed_vars is not None:
-            filtered_context = {k: v for k, v in context.items() if k in allowed_vars or not k.startswith('_')}
-        else:
-            filtered_context = {k: v for k, v in context.items() if not k.startswith('_')}
-        
-        result = safe_eval(expression, filtered_context)
-        return bool(result)
+        filtered_context = {k: v for k, v in context.items() 
+                          if (allowed_vars is None or k in allowed_vars) and not k.startswith('_')}
+        return bool(safe_eval(expression, filtered_context))
     except Exception as e:
         raise SafeEvalError(f"条件表达式评估失败 '{expression}': {e}")
 
@@ -199,9 +185,7 @@ def eval_dataframe_expression(df, expression: str, extra_funcs: Optional[Dict] =
     import numpy as np
     
     variables = {c: df[c] for c in df.columns}
-    variables['df'] = df
-    variables['pd'] = pd
-    variables['np'] = np
+    variables.update({'df': df, 'pd': pd, 'np': np})
     
     extra = {'str': str, 'int': int, 'float': float, 'len': len, 
              'abs': abs, 'round': round, 'min': min, 'max': max}

@@ -59,40 +59,32 @@ class Logger:
     def set_pipeline(self, name: Optional[str]):
         self._pipeline_name = name
     
-    def _format_message(self, level: LogLevel, message: str, extra: Optional[Dict] = None) -> str:
+    def _format(self, level: LogLevel, message: str, extra: Optional[Dict] = None) -> str:
         """格式化日志消息"""
         if self.json_format:
-            log_entry = {"level": level.name, "message": message}
+            entry = {"level": level.name, "message": message}
             if self._pipeline_name:
-                log_entry["pipeline"] = self._pipeline_name
+                entry["pipeline"] = self._pipeline_name
             if self._step_id:
-                log_entry["step_id"] = self._step_id
+                entry["step_id"] = self._step_id
             if extra:
-                log_entry["extra"] = extra
-            return json.dumps(log_entry, ensure_ascii=False, default=str)
-        else:
-            parts = []
-            if self._pipeline_name:
-                parts.append(f"[{self._pipeline_name}]")
-            if self._step_id:
-                parts.append(f"[{self._step_id}]")
-            if message:
-                parts.append(message)
-            if extra:
-                parts.extend(str(v) for v in extra.values())
-            return " ".join(parts)
-    
-    def _colorize(self, text: str, level: LogLevel) -> str:
-        if not self.use_color:
-            return text
-        return f"{self.COLORS.get(level, '')}{text}{self.COLORS['RESET']}"
+                entry["extra"] = extra
+            return json.dumps(entry, ensure_ascii=False, default=str)
+        
+        parts = []
+        if self._pipeline_name:
+            parts.append(f"[{self._pipeline_name}]")
+        if self._step_id:
+            parts.append(f"[{self._step_id}]")
+        parts.append(message)
+        if extra:
+            parts.extend(str(v) for v in extra.values())
+        return " ".join(parts)
     
     def _write(self, text: str, level: LogLevel):
-        colored_text = self._colorize(text, level)
-        if level >= LogLevel.ERROR:
-            print(colored_text, file=sys.stderr)
-        else:
-            print(colored_text)
+        colored = f"{self.COLORS.get(level, '')}{text}{self.COLORS['RESET']}" if self.use_color else text
+        stream = sys.stderr if level >= LogLevel.ERROR else sys.stdout
+        print(colored, file=stream)
         
         if self.log_file:
             with open(self.log_file, "a", encoding="utf-8") as f:
@@ -102,8 +94,7 @@ class Logger:
         """记录日志"""
         if level < self.level:
             return
-        formatted = self._format_message(level, message, extra)
-        self._write(formatted, level)
+        self._write(self._format(level, message, extra), level)
     
     def debug(self, message: str, **kwargs):
         self.log(LogLevel.DEBUG, message, **kwargs)
@@ -120,18 +111,8 @@ class Logger:
     def error(self, message: str, **kwargs):
         self.log(LogLevel.ERROR, message, **kwargs)
     
-    def step_start(self, step_id: str, op_type: str):
-        self.set_step(step_id)
-    
-    def step_end(self, step_id: str, success: bool = True, result_summary: str = ""):
-        self.set_step(step_id)
-        if result_summary:
-            if success:
-                self.info("", extra={"": result_summary})
-            else:
-                self.error("", extra={"": result_summary})
-    
     def step_error(self, step_id: str, error: Exception, context: Optional[Dict] = None):
+        """记录步骤错误"""
         self.set_step(step_id)
         extra = context or {}
         extra["error_type"] = type(error).__name__
@@ -168,7 +149,7 @@ class StepContext:
     
     def __enter__(self):
         self.start_time = time.time()
-        self.logger.step_start(self.step_id, self.op_type)
+        self.logger.set_step(self.step_id)
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -177,7 +158,7 @@ class StepContext:
         if exc_val is not None:
             self.logger.step_error(self.step_id, exc_val, {"elapsed": f"{elapsed:.3f}s"})
         else:
-            self.logger.step_end(self.step_id, success=True, result_summary=f"耗时: {elapsed:.3f}s")
+            self.logger.info(f"耗时: {elapsed:.3f}s")
         
         self.logger.set_step(None)
         return False

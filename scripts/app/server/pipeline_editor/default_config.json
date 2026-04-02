@@ -1,0 +1,752 @@
+{
+  "public_ops": {
+    "load_step_result": {
+      "step_id": "str — 必填，指定要提取的 pipeline step ID（如 'step_01'），将其执行结果提取并覆盖为当前的数据流"
+    },
+    "goto": {
+      "target": "str — 必填，输入目标Step ID，实现流程跳转"
+    },
+    "condition": {
+      "check": "str — 必填，判定条件的Python表达式",
+      "then": "str — 必填，条件为真时跳转的Step ID",
+      "else": "str — 必填，条件为假时跳转的Step ID"
+    },
+    "print": {
+      "key": "str — 可选，要打印的内容键名，默认 'last_result'"
+    },
+    "end": {
+      "说明": "无需参数 — 结束当前全流程"
+    },
+    "clear_context": {
+      "clear_results": "bool — 可选，是否清空所有历史步骤结果，默认 false",
+      "keep_steps": "list — 可选，保留指定步骤的结果（当 clear_results=true 时有效），例如 ['step_01', 'step_02']",
+      "gc": "bool — 可选，是否触发垃圾回收，默认 true"
+    }
+  },
+  "elt_ops": {
+    "read_excel": {
+      "说明": "【兼容别名】读取 Excel 文件，实际调用 file_ops.import_excel",
+      "file": "str — 必填，Excel文件路径（基于 base_dir），例如 'data/input.xlsx'",
+      "sheet": "str|int — 可选，工作表名称或索引，默认 0",
+      "header_row": "int — 可选，表头所在行（从1开始），默认 1"
+    },
+    "read_csv": {
+      "说明": "【兼容别名】读取 CSV 文件，实际调用 file_ops.import_csv",
+      "file": "str — 必填，CSV文件路径（基于 base_dir），例如 'data/input.csv'",
+      "delimiter": "str — 可选，分隔符，默认 ','",
+      "encoding": "str — 可选，文件编码，可填 'auto' 自动推断，或如 'utf-8', 'gbk'，默认 'utf-8'"
+    },
+    "filter": {
+      "column": "str — 必填，需要过滤的列名",
+      "op": "str — 必填，比较操作符，支持 '>', '>=', '<', '<=', '==', '!=', 'isna', 'notna', 'isempty', 'notempty'",
+      "value": "any — 可选，比较的目标值（isna/notna/isempty/notempty 不需要）"
+    },
+    "sort": {
+      "column": "str|list — 必填，排序列的列名或列表",
+      "ascending": "bool|list — 可选，是否升序排列，默认 true"
+    },
+    "rename": {
+      "map": "dict — 必填，列名重命名字典，例如 {'旧列名': '新列名'}"
+    },
+    "select": {
+      "columns": "list — 必填，需要保留的列名列表，例如 ['A', 'B']"
+    },
+    "drop": {
+      "columns": "list — 必填，需要删除的列名列表"
+    },
+    "fill_null": {
+      "column": "str — 必填，需要填充缺失值的列名",
+      "value": "any — 必填，用于填充的值"
+    },
+    "calc": {
+      "new_col": "str — 必填，计算结果生成的新列名",
+      "formula": "str — 必填，计算公式，如 'A + B' 或 Python 表达式（支持 pd, np 等基础运算）"
+    },
+    "group": {
+      "by": "list — 必填，分组列的列表，例如 ['category']",
+      "agg": "dict — 必填，聚合规则字典，例如 {'sales': 'sum', 'id': 'count'}"
+    },
+    "join": {
+      "source": "str — 必填，要连接的历史步骤 ID（右表），例如 'step_01'",
+      "on": "str|list — 必填，用于连接的关键列",
+      "how": "str — 可选，连接方式（'left', 'right', 'inner', 'outer'），默认 'left'"
+    },
+    "pivot": {
+      "index": "str|list — 必填，透视表的行索引",
+      "columns": "str|list — 必填，透视表的列索引",
+      "values": "str|list — 必填，需要进行聚合的数据列",
+      "agg": "str — 可选，聚合函数，默认 'sum'"
+    },
+    "unpivot": {
+      "id_cols": "list — 必填，不需要逆透视的保留列（即行标识列）",
+      "var_col": "str — 可选，生成的变量列名，默认 'variable'",
+      "value_col": "str — 可选，生成的数据值列名，默认 'value'"
+    },
+    "overlay": {
+      "source_col": "str — 必填，源数据列名（用于覆盖的值）",
+      "target_col": "str — 必填，目标数据列名（被覆盖的列）",
+      "drop": "bool — 可选，是否在覆盖后删除源列，默认 true"
+    },
+    "split_write": {
+      "说明": "【兼容别名】分组写入多个 CSV 文件，实际调用 file_ops.export_split",
+      "group_col": "str|list — 必填，按照哪些列进行分组拆分",
+      "out_dir": "str — 必填，输出文件夹路径",
+      "name_col": "str — 可选，作为输出文件名的列，默认使用 group_col",
+      "encoding": "str — 可选，输出文件的编码，默认 'utf-8-sig'"
+    },
+    "fuzzy_override": {
+      "source": "str — 必填，包含覆盖规则的历史步骤 ID（字典表）",
+      "match_col": "str — 必填，精确匹配列（左右表必须一致）",
+      "text_col": "str — 必填，当前数据流中需要执行模糊匹配的文本列",
+      "contains_col": "str — 必填，规则表中的关键字列（只要 text_col 包含该词即可匹配）",
+      "source_val_col": "str — 必填，规则表中提供新值的列",
+      "target_val_col": "str — 必填，当前数据流中将被修改或赋值的目标列"
+    },
+    "write_excel": {
+      "说明": "【兼容别名】写入 Excel 文件，实际调用 file_ops.export_excel",
+      "file": "str — 必填，保存的Excel文件路径，例如 'output/result.xlsx'",
+      "sheet": "str — 可选，工作表名称，默认 'Sheet1'"
+    },
+    "write_csv": {
+      "说明": "【兼容别名】写入 CSV 文件，实际调用 file_ops.export_csv",
+      "file": "str — 必填，保存的CSV文件路径",
+      "clean_newlines": "bool — 可选，是否清除文本中的换行符以防止错行，默认 true",
+      "encoding": "str — 可选，保存编码，默认 'utf-8-sig'"
+    },
+    "rank": {
+      "column": "str — 必填，用来计算排名的源列",
+      "new_col": "str — 可选，输出的排序列名，默认在源列名后加 '_rank'",
+      "ascending": "bool — 可选，是否按升序计算排名，默认 true",
+      "method": "str — 可选，排名方法（'min', 'max', 'average', 'dense'），默认 'min'",
+      "group_by": "list — 可选，按哪些列分组后再分别计算排名",
+      "top_n": "int — 可选，只保留排名前 N 的行"
+    },
+    "value_counts": {
+      "column": "str — 必填，要统计频数的列",
+      "normalize": "bool — 可选，是否返回频率（百分比），默认 false",
+      "dropna": "bool — 可选，是否丢弃空值，默认 false",
+      "count_col": "str — 可选，生成的统计结果列名，默认 'count'",
+      "sort_ascending": "bool — 可选，是否对结果进行升序排列"
+    },
+    "bin": {
+      "column": "str — 必填，需要进行分箱的数值列",
+      "new_col": "str — 可选，分箱结果存放的新列名，默认在源列名后加 '_bin'",
+      "bins": "list|int — 可选，自定义分箱边界列表（如 [0, 10, 20]）或等距分箱的数量",
+      "q": "int — 可选，等频分箱（分位数）的数量（bins 和 q 二选一）",
+      "labels": "list — 可选，对应分箱后的标签名称，例如 ['低', '中', '高']"
+    },
+    "describe": {
+      "columns": "list — 可选，指定要进行统计描述的列（为空则统计所有数值列）",
+      "percentiles": "list — 可选，指定要计算的分位数，默认 [.25, .5, .75]"
+    },
+    "cumulative": {
+      "column": "str — 必填，要计算累计值的数值列",
+      "new_col": "str — 可选，结果保存的新列名，默认在源列名加 '_cum'（同时会自动生成百分比列 '_pct'）",
+      "group_by": "list — 可选，指定按哪些列进行分组累计计算",
+      "sort_desc": "bool — 可选，计算前是否先按该列降序排序，默认 true"
+    },
+    "head_tail": {
+      "n": "int — 可选，需要保留的行数，默认 10",
+      "mode": "str — 可选，提取模式：'head'(取前n条)、'tail'(取后n条)、'both'(首尾各取n条)，默认 'head'"
+    },
+    "merge_excel_files": {
+      "说明": "【兼容别名】合并多个 Excel 文件，实际调用 file_ops.merge_excel",
+      "source_step": "str — 可选，文件扫描结果的步骤ID，默认使用 last_result",
+      "sheet": "str|int — 可选，工作表名称或索引，默认 0",
+      "header_row": "int — 可选，表头所在行（从1开始），默认 1",
+      "dedup_columns": "list — 可选，去重依据的列名列表",
+      "keep_columns": "list — 可选，保留的辅助列，默认不保留 _source_file"
+    },
+    "select_resource": {
+      "mode": "str — 必填，选择模式：'folder'(文件夹) 或 'file'(文件)",
+      "title": "str — 可选，对话框标题",
+      "initial_dir": "str — 可选，初始目录路径",
+      "file_types": "list — 可选，文件类型过滤，如 [['Excel','*.xlsx'],['All','*.*']]",
+      "save_to": "str — 可选，结果保存到 ctx 的路径，如 'paths.source_dir'",
+      "config_name": "str — 可选，配置名称（用于缓存）",
+      "config_note": "str — 可选，配置备注说明",
+      "use_cache": "bool — 可选，是否使用缓存，默认 true",
+      "force_refresh": "bool — 可选，是否强制刷新，默认 false",
+      "validate_exists": "bool — 可选，是否验证文件/目录存在，默认 true"
+    },
+    "input_dialog": {
+      "title": "str — 可选，对话框标题",
+      "prompt": "str — 可选，输入提示文本",
+      "default": "str — 可选，默认值",
+      "save_to": "str — 可选，结果保存到 ctx 的路径",
+      "config_name": "str — 可选，配置名称（用于缓存）",
+      "config_note": "str — 可选，配置备注说明",
+      "use_cache": "bool — 可选，是否使用缓存，默认 true",
+      "force_refresh": "bool — 可选，是否强制刷新，默认 false"
+    },
+    "clear_dynamic_config": {
+      "config_name": "str — 可选，要清除的配置名称，不指定则清除所有配置"
+    },
+    "list_dynamic_configs": {
+      "说明": "无需参数 — 列出所有已缓存的动态配置"
+    }
+  },
+  "file_ops": {
+    "load_step_result": {
+    "step_id": "str — 必须，要提取的历史步骤 ID。该操作会将对应步骤的结果覆盖到当前 last_result，以便后续步骤使用。"
+  },
+  "scan_directory": {
+    "folder_path": "str — 必须，要扫描的本地文件夹路径，例如 'D:/Work/Data'"
+  },
+  "filter_files": {
+    "conditions": "list — 必须，过滤条件列表。field 可选 name/ext/modify_time/size/type；operator 可选 =/>/</~/<=；value 支持 'now-3600' 等时间偏移值。"
+  },
+  "batch_delete": {
+    "说明": "无参数。执行后删除当前数据流（last_result）中记录的所有文件和文件夹。"
+  },
+  "batch_rename": {
+    "prefix": "str — 可选，重命名后的统一前缀，默认 'file'。会自动处理重名冲突。"
+  },
+  "limit_items": {
+    "count": "int — 必须，限制数据流中保留的项目数量，例如 5。"
+  },
+  "batch_copy": {
+    "dest_path": "str — 必须，目标复制路径。执行后数据流的 base_path 将切换至此路径。"
+  },
+  "print_result": {
+    "content": "any — 可选，要打印的具体内容。若不提供，则美化打印当前数据流的所有信息。"
+  },
+  "open_program": {
+    "path": "str — 可选，指定打开的路径。若不提供，默认调用系统资源管理器打开当前流的 base_path。"
+  },
+  "plug_in": {
+    "type": "str — 可选，插件类型，目前支持 'csvtohtml'（将当前流中的 CSV 转换为 HTML），默认为 'csvtohtml'。"
+  },
+  "import_excel": {
+    "file": "str — 必填，Excel文件路径（基于 base_dir），例如 'data/input.xlsx'",
+    "sheet": "str|int — 可选，工作表名称或索引，默认 0",
+    "header_row": "int — 可选，表头所在行（从1开始），默认 1"
+  },
+  "import_csv": {
+    "file": "str — 必填，CSV文件路径（基于 base_dir），例如 'data/input.csv'",
+    "delimiter": "str — 可选，分隔符，默认 ','",
+    "encoding": "str — 可选，文件编码，可填 'auto' 自动推断，或如 'utf-8', 'gbk'，默认 'utf-8'"
+  },
+  "export_excel": {
+    "file": "str — 必填，保存的Excel文件路径，例如 'output/result.xlsx'",
+    "sheet": "str — 可选，工作表名称，默认 'Sheet1'"
+  },
+  "export_csv": {
+    "file": "str — 必填，保存的CSV文件路径",
+    "clean_newlines": "bool — 可选，是否清除文本中的换行符以防止错行，默认 true",
+    "encoding": "str — 可选，保存编码，默认 'utf-8-sig'"
+  },
+  "export_split": {
+    "group_col": "str|list — 必填，按照哪些列进行分组拆分",
+    "out_dir": "str — 必填，输出文件夹路径",
+    "name_col": "str — 可选，作为输出文件名的列，默认使用 group_col",
+    "encoding": "str — 可选，输出文件的编码，默认 'utf-8-sig'"
+  },
+  "merge_excel": {
+    "source_step": "str — 可选，文件扫描结果的步骤ID，默认使用 last_result",
+    "sheet": "str|int — 可选，工作表名称或索引，默认 0",
+    "header_row": "int — 可选，表头所在行（从1开始），默认 1",
+    "dedup_columns": "list — 可选，去重依据的列名列表",
+    "keep_columns": "list — 可选，保留的辅助列，默认不保留 _source_file"
+  }
+  },
+  "attemper_ops": {
+    "run_py": {
+      "file": "str — 必填，Python 脚本路径，文件名须符合规范（如 'elt_ops_sync.py'），系统会自动匹配处理器执行，例如 'scripts/file_ops_clean.py'"
+    },
+    "run_exe": {
+      "exe": "str — 必填，可执行程序路径或名称，例如 'ffmpeg' 或 'python.exe'",
+      "args": "list — 可选，传递给程序的参数列表，例如 ['--version', '-o', 'out.txt']，默认 []",
+      "cwd": "str|null — 可选，程序运行的工作目录，默认 null（当前目录）"
+    },
+    "wait": {
+      "seconds": "float|int — 必填，暂停执行的秒数，例如 5.5"
+    }
+  },
+  "ai_ops": {
+    "text_to_speech": {
+      "output_path": "str — 可选，保存生成的语音文件路径，默认 'output/speech.mp3'",
+      "voice": "str — 可选，选择的微软TTS语音角色，例如 'zh-CN-XiaoxiaoNeural'（默认）"
+    },
+    "chat": {
+      "url": "str — 可选，API请求地址，默认 'https://www.dmxapi.cn/v1/chat/completions'",
+      "apikey": "str — 可选，API的认证密钥，默认 'sk-'",
+      "model": "str — 可选，使用的模型名称，默认 'gemini-3.1-flash-lite-preview'",
+      "prompt": "str — 可选，系统提示词(System Prompt)，默认 '你是一个助手'",
+      "content": "str — 可选，发送给AI的对话内容。如果不传，则默认读取上一步传递下来的数据流",
+      "timeout": "int — 可选，请求超时秒数，默认 60"
+    },
+    "show_simpledialog": {
+      "content": "str — 可选，弹窗中显示的提示文本内容。如果不传，则默认读取上一步传递下来的数据流。用户在弹窗中输入的文本将成为新的数据流继续向下传递"
+    },
+    "parse_readable_text": {
+      "说明": "无需参数 — 获取当前数据流中的 Markdown 或粗排版文本，清洗格式并转换为更易读的排版，然后覆盖当前数据流向下传递"
+    },
+    "open_program": {
+      "file": "str — 可选，指定需要打开的文件路径或程序。如果不指定，则尝试将当前数据流（比如上一步TTS生成的音频文件路径）作为目标路径使用系统默认程序打开"
+    }
+  },
+  "datavisual_ops": {
+    "to_table_html": {
+      "file": "str — 必填，输出HTML文件路径，例如 'output/table.html'（支持绝对路径，目录不存在时自动创建）",
+      "title": "str — 可选，页面标题，默认'数据展示'"
+    },
+    "to_chart_html": {
+      "file": "str — 必填，输出HTML文件路径",
+      "title": "str — 可选，图表标题，默认'数据图表'",
+      "x_column": "str — 可选，X轴列名，默认第一列",
+      "y_columns": "str — 可选，Y轴列名列表，逗号分隔，默认所有数值列",
+      "chart_type": "str — 可选，图表类型：line(折线)/bar(柱状)/scatter(散点)，默认line"
+    },
+    "to_summary_html": {
+      "file": "str — 必填，输出HTML文件路径",
+      "title": "str — 可选，页面标题，默认'数据汇总'"
+    },
+    "csv_to_html": {
+      "input": "str — 必填，输入CSV文件路径",
+      "output": "str — 可选，输出HTML文件路径，默认同名.html",
+      "title": "str — 可选，页面标题，默认'数据展示'"
+    }
+  },
+  "config_ops": {
+    "load_external_config": {
+      "file": "str — 必填，配置文件路径，支持 JSON/YAML",
+      "name": "str — 可选，注册名称供后续引用，默认 'external'",
+      "type": "str — 可选，配置文件类型：'json'/'yaml'/'auto'，默认 'auto'"
+    },
+    "load_env_config": {
+      "prefix": "str — 可选，环境变量前缀，默认 'STARL3_'",
+      "name": "str — 可选，注册名称，默认 'env'"
+    },
+    "resolve_config": {
+      "config": "dict — 可选，需要解析的配置字典。不传则从 last_result 读取"
+    },
+    "get_config_value": {
+      "path": "str — 必填，配置路径，如 'external.db.host' 或 'ENV.PATH'",
+      "default": "any — 可选，当配置不存在时返回的默认值"
+    },
+    "set_config_value": {
+      "name": "str — 可选，配置名称，默认 'runtime'",
+      "path": "str — 必填，配置路径，如 'db.host'",
+      "value": "any — 必填，要设置的值"
+    },
+    "merge_configs": {
+      "configs": "list — 必填，配置名称列表，如 ['external', 'env']，按顺序合并"
+    }
+  },
+  "include_ops": {
+    "include": {
+      "file": "str — 必填，子配置文件路径",
+      "return_as": "str — 可选，将子流程结果存入指定步骤ID，不填则作为 last_result",
+      "inherit_context": "bool — 可选，是否继承当前上下文，默认 true"
+    },
+    "block": {
+      "name": "str — 可选，代码块名称",
+      "color": "str — 可选，颜色标记（用于可视化）"
+    }
+  },
+  "crawler_ops": {
+    "http_request": {
+      "url": "str — 必填，请求URL地址，例如 'https://example.com/api'",
+      "method": "str — 可选，HTTP方法：GET/POST/PUT/DELETE，默认GET",
+      "headers": "dict — 可选，自定义请求头，例如 {'Accept': 'application/json'}",
+      "cookies": "dict — 可选，Cookie字典",
+      "data": "dict|str — 可选，POST表单数据",
+      "json_data": "dict — 可选，JSON格式请求体",
+      "params": "dict — 可选，URL查询参数",
+      "proxy": "str — 可选，代理服务器，例如 'http://127.0.0.1:8080'",
+      "timeout": "int — 可选，超时秒数，默认30",
+      "random_ua": "bool — 可选，是否使用随机User-Agent，默认true",
+      "max_retries": "int — 可选，失败重试次数，默认3",
+      "retry_delay": "int — 可选，重试间隔秒数，默认1"
+    },
+    "parse_html": {
+      "html": "str — 可选，HTML内容。不传则使用上一步last_result",
+      "rules": "list|dict — 必填，提取规则列表。每项包含name(字段名), selector(选择器), type(css/xpath/regex), extract(text/html/attr), attr(属性名), multiple(是否多值)",
+      "说明": "支持CSS选择器、XPath、正则表达式提取数据"
+    },
+    "crawl_pages": {
+      "url_template": "str — 可选，URL模板，例如 'https://example.com/list?page={page}'",
+      "page_param": "str — 可选，分页参数名，默认'page'",
+      "start_page": "int — 可选，起始页码，默认1",
+      "end_page": "int — 可选，结束页码，默认1",
+      "max_pages": "int — 可选，最大爬取页数，默认100",
+      "delay": "float — 可选，每页间隔秒数，默认3",
+      "delay_random": "bool — 可选，是否添加随机延时，默认true",
+      "delay_range": "list — 可选，随机延时范围，默认[0.5, 2]",
+      "method": "str — 可选，HTTP方法，默认GET",
+      "headers": "dict — 可选，请求头",
+      "use_full_headers": "bool — 可选，使用完整请求头模板，默认true",
+      "auto_referer": "bool — 可选，自动设置Referer，默认true",
+      "proxy": "str — 可选，代理服务器",
+      "proxies": "list — 可选，代理池列表",
+      "proxy_rotate": "bool — 可选，是否轮换代理，默认false",
+      "parse_rules": "list — 可选，自动解析规则",
+      "merge_results": "bool — 可选，是否合并所有页结果，默认true",
+      "save_progress": "bool — 可选，是否保存进度，默认true",
+      "progress_file": "str — 可选，进度文件路径，默认'crawler_progress.json'",
+      "resume_from": "int — 可选，从指定页码恢复爬取",
+      "max_retries": "int — 可选，失败重试次数，默认3",
+      "retry_delay": "int — 可选，重试间隔秒数，默认2"
+    },
+    "crawl_recursive": {
+      "start_url": "str — 必填，起始URL",
+      "max_depth": "int — 可选，最大递归深度，默认2",
+      "max_pages": "int — 可选，最大爬取页数，默认50",
+      "same_domain": "bool — 可选，是否限制同域名，默认true",
+      "allowed_extensions": "list — 可选，允许的扩展名，默认['.html','.htm','.php','']",
+      "delay": "float — 可选，请求间隔秒数，默认1",
+      "save_content": "bool — 可选，是否保存页面内容，默认false"
+    },
+    "session_login": {
+      "login_url": "str — 必填，登录接口URL",
+      "username": "str — 必填，用户名",
+      "password": "str — 必填，密码",
+      "username_field": "str — 可选，用户名字段名，默认'username'",
+      "password_field": "str — 可选，密码字段名，默认'password'",
+      "extra_fields": "dict — 可选，额外表单字段",
+      "data": "dict — 可选，完整表单数据（会覆盖username/password）",
+      "success_check": "str — 可选，成功标识字符串，用于判断登录是否成功",
+      "timeout": "int — 可选，超时秒数，默认30",
+      "debug": "bool — 可选，是否返回响应预览"
+    },
+    "download_file": {
+      "url": "str — 必填，文件URL",
+      "output_path": "str — 可选，保存路径。不传则从URL提取文件名",
+      "timeout": "int — 可选，超时秒数，默认60"
+    },
+    "save_crawler_data": {
+      "format": "str — 可选，保存格式：json/csv/excel，默认json",
+      "file": "str — 可选，输出文件路径，默认'output/crawler_data'",
+      "说明": "自动根据上一步last_result提取数据并保存"
+    },
+    "clear_session": {
+      "说明": "无需参数 — 清除当前会话，重置Cookie和Session"
+    }
+  },
+  "input_ops": {
+    "create_input_config": {
+      "config_name": "str — 必填，配置名称",
+      "actions": "list — 必填，操作列表，格式: [{action_type, params, description}]",
+      "description": "str — 可选，配置描述",
+      "repeat": "int — 可选，重复执行次数，默认 1",
+      "interval": "float — 可选，每次重复间隔（秒），默认 0",
+      "save_to": "str — 可选，保存到 ctx 的路径，如 'input_configs.my_config'"
+    },
+    "load_input_config": {
+      "config_name": "str — 可选，配置名称",
+      "from_ctx": "str — 可选，从 ctx 读取，如 'input_configs.my_config'"
+    },
+    "list_input_configs": {
+      "说明": "无需参数 — 列出所有已保存的键鼠配置"
+    },
+    "delete_input_config": {
+      "config_name": "str — 必填，要删除的配置名称"
+    },
+    "execute_input_actions": {
+      "config_name": "str — 可选，使用已保存的配置",
+      "actions": "list — 可选，直接传入操作列表",
+      "repeat": "int — 可选，重复次数，默认 1",
+      "interval": "float — 可选，重复间隔（秒），默认 0",
+      "save_results": "bool — 可选，是否保存每步结果，默认 false"
+    },
+    "mouse_click": {
+      "x": "int — 可选，X坐标（不传则当前位置）",
+      "y": "int — 可选，Y坐标（不传则当前位置）",
+      "button": "str — 可选，'left'/'right'/'middle'，默认 'left'",
+      "clicks": "int — 可选，点击次数，默认 1",
+      "interval": "float — 可选，多次点击间隔（秒），默认 0"
+    },
+    "mouse_move": {
+      "x": "int — 必填，目标X坐标",
+      "y": "int — 必填，目标Y坐标",
+      "duration": "float — 可选，移动持续时间（秒），默认 0.25"
+    },
+    "mouse_scroll": {
+      "clicks": "int — 可选，滚动格数（正值向上，负值向下），默认 3",
+      "x": "int — 可选，滚动位置X坐标",
+      "y": "int — 可选，滚动位置Y坐标"
+    },
+    "mouse_drag": {
+      "x": "int — 必填，目标X坐标",
+      "y": "int — 必填，目标Y坐标",
+      "duration": "float — 可选，拖拽持续时间（秒），默认 0.5",
+      "button": "str — 可选，'left'/'right'/'middle'，默认 'left'"
+    },
+    "key_press": {
+      "key": "str — 必填，按键名，如 'enter', 'esc', 'tab', 'space' 等",
+      "presses": "int — 可选，按下次数，默认 1",
+      "interval": "float — 可选，多次按键间隔（秒），默认 0"
+    },
+    "type_text": {
+      "text": "str — 可选，要输入的文本（不传则使用 last_result）",
+      "interval": "float — 可选，每个字符间隔（秒），默认 0"
+    },
+    "hotkey": {
+      "keys": "list — 必填，按键列表，如 ['ctrl', 'c'], ['alt', 'tab']"
+    },
+    "wait": {
+      "seconds": "float — 必填，等待秒数"
+    },
+    "screenshot": {
+      "file": "str — 可选，保存路径，如 'screenshots/capture.png'",
+      "region": "list — 可选，区域 [left, top, width, height]"
+    },
+    "get_mouse_position": {
+      "说明": "无需参数 — 获取当前鼠标坐标"
+    },
+    "get_screen_size": {
+      "说明": "无需参数 — 获取屏幕尺寸"
+    },
+    "find_and_click": {
+      "image": "str — 必填，要查找的图片路径",
+      "confidence": "float — 可选，匹配置信度（需opencv），默认 0.9",
+      "grayscale": "bool — 可选，是否灰度匹配，默认 false",
+      "clicks": "int — 可选，点击次数，默认 1",
+      "button": "str — 可选，按钮，默认 'left'"
+    },
+    "record_actions": {
+      "config_name": "str — 必填，保存的配置名称",
+      "timeout": "int/float — 可选，录制超时（秒），0=无限，默认 60",
+      "sampling_mode": "str — 可选，采样模式: clicks_only(默认)/low/medium/high/ultra",
+      "save_to": "str — 可选，保存到 ctx 的路径，如 'input_configs.recorded'",
+      "说明": "按 Esc 键停止录制。clicks_only=仅点击/滚轮/按键; low/medium/high/ultra=不同频率记录鼠标移动"
+    },
+    "run_recorded_config": {
+      "config_name": "str — 必填，要运行的配置名称",
+      "repeat": "int — 可选，重复次数，默认 1",
+      "interval": "float — 可选，重复间隔（秒），默认 0",
+      "delay_before": "float — 可选，执行前延迟（秒），默认 3",
+      "save_results": "bool — 可选，是否保存每步结果，默认 false"
+    }
+  },
+  "email_listener_ops": {
+    "email_listen_start": {
+      "imap_server": "str — 必填，IMAP服务器，如 'imap.qq.com'",
+      "imap_port": "int — 可选，默认 993(SSL) 或 143",
+      "username": "str — 必填，邮箱账号",
+      "password": "str — 必填，邮箱密码或授权码",
+      "use_ssl": "bool — 可选，默认 true",
+      "config_file": "str — 必填，收到邮件时执行的 pipeline 文件",
+      "filters": "dict — 可选，过滤条件: from_contains/subject_contains/body_contains 等",
+      "check_interval": "int — 可选，检查间隔秒数，默认 60",
+      "mark_as_seen": "bool — 可选，处理后是否标记已读，默认 true",
+      "timeout": "int/float — 可选，监听超时秒数，0=永久，默认 0",
+      "说明": "启动邮箱监听，满足条件的邮件会触发执行脚本，邮件内容通过 ctx 传递"
+    },
+    "email_check_once": {
+      "imap_server": "str — 必填，IMAP服务器",
+      "username": "str — 必填，邮箱账号",
+      "password": "str — 必填，密码/授权码",
+      "filters": "dict — 可选，过滤条件",
+      "max_emails": "int — 可选，最多检查数量，默认 10",
+      "说明": "单次检查邮件，不启动常驻监听，返回匹配的邮件列表"
+    },
+    "email_watch_simple": {
+      "email": "str — 必填，邮箱账号",
+      "password": "str — 必填，密码/授权码",
+      "server": "str — 必填，如 'imap.qq.com'",
+      "on_subject": "str — 可选，主题包含的关键词",
+      "from": "str — 可选，发件人包含的关键词",
+      "run": "str — 必填，触发时执行的脚本路径",
+      "check_interval": "int — 可选，检查间隔，默认 60",
+      "说明": "简化的邮件监听，一行配置实现"
+    }
+  },
+  "web_framework_ops": {
+    "http_route_add": {
+      "path": "str — 必填，路由路径，如 '/api/users' 或 '/api/users/:id'",
+      "config_file": "str — 必填，匹配的 pipeline 文件",
+      "methods": "list — 可选，HTTP方法，默认 ['GET', 'POST']"
+    },
+    "http_router_start": {
+      "port": "int — 可选，默认 8080",
+      "host": "str — 可选，默认 '0.0.0.0'",
+      "cors": "bool — 可选，是否启用跨域，默认 true",
+      "timeout": "int/float — 可选，超时秒数，0=永久，默认 0",
+      "说明": "启动带路由的 HTTP 服务器，需先使用 http_route_add 添加路由"
+    },
+    "rest_success": {
+      "data": "any — 响应数据",
+      "message": "str — 提示消息，默认 'success'",
+      "code": "int — 业务代码，默认 0"
+    },
+    "rest_error": {
+      "message": "str — 错误消息，必填",
+      "status_code": "int — HTTP状态码，默认 400",
+      "code": "int — 业务错误代码，默认 -1"
+    },
+    "auth_apikey_add": {
+      "key": "str — 必填，API Key",
+      "name": "str — 可选，名称描述",
+      "permissions": "list — 可选，权限列表"
+    },
+    "auth_apikey_validate": {
+      "key": "str — 要验证的 API Key",
+      "reject": "bool — 无效时是否返回错误，默认 true"
+    },
+    "cache_set": {
+      "key": "str — 必填，缓存键",
+      "value": "any — 必填，缓存值",
+      "ttl": "int — 可选，过期时间秒数，默认 3600"
+    },
+    "cache_get": {
+      "key": "str — 必填，缓存键",
+      "default": "any — 可选，不存在时返回的默认值"
+    },
+    "cache_connect_redis": {
+      "host": "str — 可选，默认 localhost",
+      "port": "int — 可选，默认 6379",
+      "db": "int — 可选，默认 0",
+      "password": "str — 可选，密码"
+    },
+    "db_connect_sqlite": {
+      "name": "str — 可选，连接名称，默认 'default'",
+      "db_path": "str — 必填，数据库文件路径"
+    },
+    "db_execute": {
+      "name": "str — 可选，连接名称，默认 'default'",
+      "sql": "str — 必填，SQL语句",
+      "params": "list — 可选，SQL参数"
+    },
+    "db_query": {
+      "说明": "db_execute 的别名，语义更清晰，参数同 db_execute"
+    },
+    "db_insert": {
+      "name": "str — 可选，连接名称",
+      "table": "str — 必填，表名",
+      "data": "dict — 必填，要插入的数据"
+    }
+  },
+  "network_listener_ops": {
+    "tcp_listen_start": {
+      "port": "int — 必填，监听端口",
+      "host": "str — 可选，绑定地址，默认 0.0.0.0",
+      "config_file": "str — 必填，收到数据时执行的脚本",
+      "data_format": "str — 可选，解析格式: raw/json/urlencoded，默认 raw",
+      "timeout": "int/float — 可选，超时秒数，0=永久，默认 0",
+      "说明": "启动 TCP 端口监听，收到的数据通过 ctx.raw_data/parsed_data 传递"
+    },
+    "http_listen_start": {
+      "port": "int — 必填，监听端口",
+      "host": "str — 可选，绑定地址，默认 0.0.0.0",
+      "config_file": "str — 必填，收到请求时执行的脚本",
+      "timeout": "int/float — 可选，超时秒数，0=永久，默认 0",
+      "说明": "启动 HTTP 服务，可用作 Webhook 接收端点"
+    },
+    "udp_listen_start": {
+      "port": "int — 必填，监听端口",
+      "host": "str — 可选，绑定地址，默认 0.0.0.0",
+      "config_file": "str — 必填，收到数据时执行的脚本",
+      "timeout": "int/float — 可选，超时秒数，0=永久，默认 0",
+      "说明": "启动 UDP 端口监听"
+    },
+    "webhook_server": {
+      "port": "int — 可选，默认 8080",
+      "run": "str — 必填，收到请求时执行的脚本",
+      "说明": "简化的 Webhook 服务器启动（http_listen_start 封装）"
+    },
+    "tcp_send": {
+      "host": "str — 必填，目标地址",
+      "port": "int — 必填，目标端口",
+      "data": "str — 必填，发送的数据",
+      "timeout": "int — 可选，连接超时，默认 10",
+      "说明": "发送 TCP 数据"
+    },
+    "http_request": {
+      "url": "str — 必填，请求URL",
+      "method": "str — 可选，GET/POST/PUT/DELETE，默认 GET",
+      "headers": "dict — 可选，请求头",
+      "data": "str — 可选，请求体",
+      "json": "dict — 可选，JSON数据（与data二选一）",
+      "timeout": "int — 可选，超时秒数，默认 30",
+      "说明": "发送 HTTP 请求（客户端功能）"
+    }
+  },
+  "scheduler_ops": {
+    "watch_directory": {
+      "watch_path": "str — 必填，要监控的目录路径",
+      "config_file": "str — 必填，触发时执行的 pipeline 配置文件",
+      "trigger_on": "list — 可选，触发事件: [created, modified, deleted]，默认 [created, modified]",
+      "recursive": "bool — 可选，是否递归监控子目录，默认 false"
+    },
+    "schedule_cron": {
+      "config_file": "str — 必填，要执行的 pipeline 配置文件",
+      "schedule_type": "str — 必填，类型: interval/daily/weekly",
+      "interval_seconds": "int — interval类型，间隔秒数",
+      "interval_minutes": "int — interval类型，间隔分钟",
+      "interval_hours": "int — interval类型，间隔小时",
+      "at_time": "str — daily/weekly类型，执行时间 HH:MM",
+      "day_of_week": "str — weekly类型，星期几: monday-friday"
+    },
+    "scheduler_run": {
+      "timeout": "int/float — 可选，运行超时秒数，0=永久运行，默认 0",
+      "说明": "启动调度器，阻塞运行。按 Ctrl+C 停止"
+    },
+    "scheduler_stop": {
+      "说明": "停止运行中的调度器"
+    },
+    "list_scheduled_jobs": {
+      "说明": "列出所有定时任务和监控任务"
+    },
+    "clear_scheduled_jobs": {
+      "说明": "清除所有任务"
+    },
+    "run_on_file_arrival": {
+      "watch_path": "str — 必填，监控目录",
+      "config_file": "str — 必填，处理脚本路径",
+      "pattern": "str — 可选，文件过滤如 *.csv，默认 *",
+      "timeout": "int/float — 可选，运行超时秒数，默认 0",
+      "说明": "文件到达即处理（watch_directory + scheduler_run 封装）"
+    },
+    "run_periodically": {
+      "config_file": "str — 必填，要执行的脚本",
+      "interval_minutes": "int — 必填，间隔分钟数",
+      "timeout": "int/float — 可选，运行超时秒数，默认 0",
+      "说明": "周期性执行（schedule_cron + scheduler_run 封装）"
+    }
+  },
+  "email_ops": {
+    "config_email": {
+      "host": "str — 必填，SMTP服务器地址，例如 'smtp.qq.com' 或 'smtp.163.com'",
+      "port": "int — 可选，SMTP端口，QQ邮箱用465，网易邮箱用25/994，默认465",
+      "username": "str — 必填，邮箱账号，例如 'yourname@qq.com'",
+      "password": "str — 必填，邮箱密码或授权码（QQ邮箱需用授权码）",
+      "use_ssl": "bool — 可选，是否使用SSL加密，默认true",
+      "sender_name": "str — 可选，发件人显示名称，例如 '张三'"
+    },
+    "set_email_content": {
+      "subject": "str — 必填，邮件主题",
+      "body": "str — 必填，邮件正文内容",
+      "body_type": "str — 可选，正文类型，'text'(纯文本) 或 'html'(HTML格式)，默认'text'"
+    },
+    "add_attachment": {
+      "file_path": "str — 必填，附件文件路径（基于base_dir），例如 'data/report.xlsx'"
+    },
+    "clear_attachments": {
+      "说明": "无需参数 — 清空当前邮件的附件列表"
+    },
+    "send_email": {
+      "to": "str|list — 必填，收件人邮箱地址，支持多个（用逗号分隔或列表），例如 'a@qq.com,b@qq.com'",
+      "cc": "str|list — 可选，抄送人邮箱地址，格式同to",
+      "bcc": "str|list — 可选，密送人邮箱地址，格式同to",
+      "clear_after_send": "bool — 可选，发送后是否清空附件列表，默认true"
+    },
+    "send_simple_email": {
+      "smtp_host": "str — 可选，SMTP服务器，默认'smtp.qq.com'",
+      "smtp_port": "int — 可选，SMTP端口，默认465",
+      "username": "str — 必填，邮箱账号",
+      "password": "str — 必填，邮箱密码/授权码",
+      "sender_name": "str — 可选，发件人名称",
+      "use_ssl": "bool — 可选，是否使用SSL，默认true",
+      "subject": "str — 必填，邮件主题",
+      "body": "str — 必填，邮件正文",
+      "body_type": "str — 可选，'text'或'html'，默认'text'",
+      "to": "str|list — 必填，收件人地址",
+      "cc": "str|list — 可选，抄送人地址",
+      "bcc": "str|list — 可选，密送人地址",
+      "attachments": "str|list — 可选，附件路径列表，例如 'file1.pdf,file2.xlsx'",
+      "clear_after_send": "bool — 可选，发送后清空附件，默认true"
+    }
+  }
+}

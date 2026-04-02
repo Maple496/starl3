@@ -4,19 +4,20 @@ ELT (Extract, Load, Transform) 操作模块
 """
 
 import os
-import chardet
+import zipfile
 import pandas as pd
 import numpy as np
 from typing import Any
 from tkinter import Tk, filedialog
 
-from core.constants import BASE_DIR, DATA_DIR, DEFAULT_ENCODING, ENCODING_PRIORITY
-from core.pipeline_engine import PipelineEngine, UserCancelledError
+from core.constants import DATA_DIR, DEFAULT_ENCODING
+from core.pipeline_engine import UserCancelledError
 from core.logger import get_logger
-from core.registry import op, OpRegistry
+from core.registry import op
 from core.safe_eval import eval_dataframe_expression, SafeEvalError
-from core.path_utils import safe_join, ensure_dir_exists, _resolve_path
-from core.dynamic_config import get_config_manager
+from core.utils import resolve_path
+from app.config_store import get_config_manager
+from core.utils import detect_encoding, clean_newlines
 
 logger = get_logger("elt_ops")
 
@@ -24,72 +25,35 @@ logger = get_logger("elt_ops")
 pd.set_option('mode.copy_on_write', True)
 
 
-def _detect_encoding(file_path: str, sample_size: int = 100000) -> str:
-    """使用 chardet 预检测文件编码"""
-    try:
-        with open(file_path, 'rb') as f:
-            raw_data = f.read(sample_size)
-            result = chardet.detect(raw_data)
-            encoding = result.get('encoding', 'utf-8')
-            confidence = result.get('confidence', 0)
-            
-            if confidence > 0.7:
-                encoding_map = {
-                    'GB2312': 'gb18030',
-                    'GBK': 'gb18030',
-                    'UTF-8-SIG': 'utf-8-sig',
-                    'UTF-16-LE': 'utf-16',
-                    'UTF-16-BE': 'utf-16',
-                }
-                return encoding_map.get(encoding.upper(), encoding)
-    except Exception:
-        pass
-    return 'utf-8'
+# ==================== 数据导入（使用 file_ops 的别名） ====================
 
-
-def _clean_newlines(df: pd.DataFrame) -> pd.DataFrame:
-    """清理字符串列中的换行符"""
-    str_cols = df.select_dtypes(include=["object"]).columns
-    if len(str_cols) == 0:
-        return df
-    
-    replacements = {
-        col: df[col].str.replace(r'[\r\n]+', ' ', regex=True) 
-        for col in str_cols
-    }
-    return df.assign(**replacements)
-
-@op("read_excel", category="elt", description="读取 Excel 文件（兼容别名，实际调用 file_ops.import_excel）")
+@op("read_excel", category="elt", description="读取 Excel 文件")
 def op_read_excel(ctx, params) -> pd.DataFrame:
-    """读取 Excel 文件 - 兼容别名，调用 file_ops.import_excel"""
+    """读取 Excel 文件"""
     from ops.file_ops import op_import_excel
     return op_import_excel(ctx, params)
 
 
-@op("read_csv", category="elt", description="读取 CSV 文件（兼容别名，实际调用 file_ops.import_csv）")
+@op("read_csv", category="elt", description="读取 CSV 文件")
 def op_read_csv(ctx, params) -> pd.DataFrame:
-    """读取 CSV 文件 - 兼容别名，调用 file_ops.import_csv"""
+    """读取 CSV 文件"""
     from ops.file_ops import op_import_csv
     return op_import_csv(ctx, params)
 
+
+# ==================== 数据转换操作 ====================
 
 @op("filter", category="elt", description="过滤数据")
 def op_filter(ctx, params) -> pd.DataFrame:
     """过滤数据"""
     df = ctx["last_result"]
-    col = params["column"]
-    op = params["op"]
-    val = params.get("value")
+    col, op, val = params["column"], params["op"], params.get("value")
     
     ops = {
-        ">": df[df[col] > val],
-        ">=": df[df[col] >= val],
-        "<": df[df[col] < val],
-        "<=": df[df[col] <= val],
-        "==": df[df[col] == val],
-        "!=": df[df[col] != val],
-        "notna": df[df[col].notna()],
-        "isna": df[df[col].isna()],
+        ">": df[df[col] > val], ">=": df[df[col] >= val],
+        "<": df[df[col] < val], "<=": df[df[col] <= val],
+        "==": df[df[col] == val], "!=": df[df[col] != val],
+        "notna": df[df[col].notna()], "isna": df[df[col].isna()],
         "isempty": df[df[col].isna() | (df[col].astype(str).str.strip() == "")],
         "notempty": df[df[col].notna() & (df[col].astype(str).str.strip() != "")]
     }
@@ -100,9 +64,7 @@ def op_filter(ctx, params) -> pd.DataFrame:
 def op_sort(ctx, params) -> pd.DataFrame:
     """排序数据"""
     df = ctx["last_result"]
-    col = params["column"]
-    ascending = params.get("ascending", True)
-    return df.sort_values(by=col, ascending=ascending)
+    return df.sort_values(by=params["column"], ascending=params.get("ascending", True))
 
 
 @op("rename", category="elt", description="重命名列")
@@ -135,20 +97,15 @@ def op_fill_null(ctx, params) -> pd.DataFrame:
 def op_calc(ctx, params) -> pd.DataFrame:
     """计算新列 - 使用安全表达式评估"""
     df = ctx["last_result"]
-    new_col = params["new_col"]
-    formula = params["formula"]
+    new_col, formula = params["new_col"], params["formula"]
     
-    if not new_col:
-        raise ValueError("new_col 不能为空")
-    if not formula:
-        raise ValueError("formula 不能为空")
+    if not new_col or not formula:
+        raise ValueError("new_col 和 formula 不能为空")
     
     try:
-        # 使用安全的 DataFrame 表达式评估
         result = eval_dataframe_expression(df, formula)
         logger.info(f"成功计算列 '{new_col}'")
         return df.assign(**{new_col: result})
-        
     except SafeEvalError as e:
         logger.error(f"计算列 '{new_col}' 失败", extra={"formula": formula, "error": str(e)})
         raise ValueError(f"公式 '{formula}' 评估失败: {e}")
@@ -158,9 +115,7 @@ def op_calc(ctx, params) -> pd.DataFrame:
 def op_group(ctx, params) -> pd.DataFrame:
     """分组聚合"""
     df = ctx["last_result"]
-    by = params["by"]
-    agg = params["agg"]
-    return df.groupby(by).agg(agg).reset_index()
+    return df.groupby(params["by"]).agg(params["agg"]).reset_index()
 
 
 @op("join", category="elt", description="合并数据")
@@ -168,14 +123,12 @@ def op_join(ctx, params) -> pd.DataFrame:
     """合并数据"""
     df = ctx["last_result"].copy()
     source_key = params.get("source")
-    if not source_key:
-        raise ValueError("join 操作需要 'source' 参数指定源步骤")
-    if source_key not in ctx.get("results", {}):
-        raise ValueError(f"源步骤 '{source_key}' 不存在，请检查步骤ID")
+    
+    if not source_key or source_key not in ctx.get("results", {}):
+        raise ValueError(f"源步骤 '{source_key}' 不存在")
+    
     source = ctx["results"][source_key].copy()
     on = params.get("on")
-    if not on:
-        raise ValueError("join 操作需要 'on' 参数指定连接列")
     how = params.get("how", "left")
     
     # 统一 join 键的数据类型（转为字符串避免类型不匹配）
@@ -216,8 +169,7 @@ def op_unpivot(ctx, params) -> pd.DataFrame:
 def op_overlay(ctx, params) -> pd.DataFrame:
     """列覆盖"""
     df = ctx["last_result"]
-    src = params["source_col"]
-    tgt = params["target_col"]
+    src, tgt = params["source_col"], params["target_col"]
     
     new_tgt = df[src].where(df[src].notna(), df[tgt])
     result = df.assign(**{tgt: new_tgt})
@@ -227,53 +179,48 @@ def op_overlay(ctx, params) -> pd.DataFrame:
     return result
 
 
-@op("split_write", category="elt", description="分组写入（兼容别名，实际调用 file_ops.export_split）")
+@op("split_write", category="elt", description="分组写入")
 def op_split_write(ctx, params) -> pd.DataFrame:
-    """分组写入 - 兼容别名，调用 file_ops.export_split"""
+    """分组写入 - 调用 file_ops.export_split"""
     from ops.file_ops import op_export_split
     return op_export_split(ctx, params)
 
 
 @op("fuzzy_override", category="elt", description="模糊匹配覆盖")
 def op_fuzzy_override(ctx, params) -> pd.DataFrame:
-    """模糊匹配覆盖 - 优化: 避免不必要的拷贝"""
+    """模糊匹配覆盖"""
     df = ctx["last_result"]
     rules = ctx["results"][params["source"]]
     
-    mc = params["match_col"]
-    tc = params["text_col"]
-    cc = params["contains_col"]
-    sv = params["source_val_col"]
-    tv = params["target_val_col"]
+    mc, tc, cc = params["match_col"], params["text_col"], params["contains_col"]
+    sv, tv = params["source_val_col"], params["target_val_col"]
     
-    # 优化：使用 assign 创建新列，避免完整的 DataFrame 拷贝
-    # 只有当确实需要修改时才创建拷贝
     result = df
-    
     for _, rule in rules.iterrows():
-        match_val = rule[mc]
-        contain_val = str(rule[cc])
-        source_val = rule[sv]
-        
+        match_val, contain_val, source_val = rule[mc], str(rule[cc]), rule[sv]
         mask = (result[mc] == match_val) & result[tc].astype(str).str.contains(contain_val, na=False, regex=False)
         result.loc[mask, tv] = source_val
     
     return result
 
 
-@op("write_excel", category="elt", description="写入 Excel（兼容别名，实际调用 file_ops.export_excel）")
+# ==================== 数据导出（使用 file_ops 的别名） ====================
+
+@op("write_excel", category="elt", description="写入 Excel")
 def op_write_excel(ctx, params) -> pd.DataFrame:
-    """写入 Excel - 兼容别名，调用 file_ops.export_excel"""
+    """写入 Excel"""
     from ops.file_ops import op_export_excel
     return op_export_excel(ctx, params)
 
 
-@op("write_csv", category="elt", description="写入 CSV（兼容别名，实际调用 file_ops.export_csv）")
+@op("write_csv", category="elt", description="写入 CSV")
 def op_write_csv(ctx, params) -> pd.DataFrame:
-    """写入 CSV - 兼容别名，调用 file_ops.export_csv"""
+    """写入 CSV"""
     from ops.file_ops import op_export_csv
     return op_export_csv(ctx, params)
 
+
+# ==================== 统计分析操作 ====================
 
 @op("rank", category="elt", description="计算排名")
 def op_rank(ctx, params) -> pd.DataFrame:
@@ -385,25 +332,11 @@ def op_head_tail(ctx, params) -> pd.DataFrame:
         return pd.concat([df.head(n), df.tail(n)]).drop_duplicates()
 
 
+# ==================== 交互式操作 ====================
+
 @op("select_resource", category="elt", description="弹出资源选择窗口")
 def op_select_resource(ctx, params):
-    """弹出资源选择窗口（文件或文件夹），支持动态配置缓存
-    
-    参数:
-        mode: 选择模式，可选 "folder"(文件夹), "file"(文件)
-        title: 对话框标题
-        initial_dir: 初始目录
-        file_types: 文件类型过滤，如 [["CSV", "*.csv"], ["All", "*.*"]]
-        save_to: 选择结果保存到 ctx 的路径，如 "paths.source_file"
-        config_name: 配置名称（用于缓存）
-        config_note: 配置备注说明
-        use_cache: 是否使用缓存，默认 true
-        force_refresh: 强制刷新缓存，重新弹窗
-        validate_exists: 验证文件/目录是否存在，不存在则重新弹窗，默认 true
-        
-    返回:
-        返回当前数据流（不破坏数据流），路径保存在 ctx 中
-    """
+    """弹出资源选择窗口（文件或文件夹），支持动态配置缓存"""
     mode = params.get("mode", "folder")
     title = params.get("title", "选择资源")
     initial_dir = params.get("initial_dir") or ctx.get("base_dir", DATA_DIR)
@@ -420,12 +353,13 @@ def op_select_resource(ctx, params):
     
     # 1. 检查环境变量（用于测试模式，最高优先级）
     if save_to:
-        if save_to == "paths.source_file":
-            selected = os.environ.get("MOCK_SOURCE_FILE")
-        elif save_to == "paths.mapping_file":
-            selected = os.environ.get("MOCK_MAPPING_FILE")
-        elif save_to == "paths.output_dir":
-            selected = os.environ.get("MOCK_OUTPUT_DIR")
+        env_map = {
+            "paths.source_file": "MOCK_SOURCE_FILE",
+            "paths.mapping_file": "MOCK_MAPPING_FILE",
+            "paths.output_dir": "MOCK_OUTPUT_DIR",
+        }
+        if save_to in env_map:
+            selected = os.environ.get(env_map[save_to])
     
     # 2. 检查动态配置缓存
     if selected is None and config_name and use_cache and not force_refresh:
@@ -433,7 +367,6 @@ def op_select_resource(ctx, params):
         cached_value = config_mgr.get_config_value(config_name)
         
         if cached_value:
-            # 验证缓存值是否有效
             is_valid = True
             if validate_exists:
                 if mode == "file" and not os.path.isfile(cached_value):
@@ -490,103 +423,13 @@ def op_select_resource(ctx, params):
         current[parts[-1]] = selected
     
     # 保持数据流不变，返回当前结果
-    return ctx.get("last_result")
-
-
-@op("input_dialog", category="elt", description="弹出文本输入对话框")
-def op_input_dialog(ctx, params):
-    """弹出文本输入对话框，支持动态配置缓存
-    
-    参数:
-        title: 对话框标题
-        prompt: 输入提示文本
-        default: 默认值
-        save_to: 输入结果保存到 ctx 的路径
-        config_name: 配置名称（用于缓存）
-        config_note: 配置备注说明
-        use_cache: 是否使用缓存，默认 true
-        force_refresh: 强制刷新缓存，重新弹窗
-        
-    返回:
-        返回当前数据流（不破坏数据流），输入值保存在 ctx 中
-    """
-    title = params.get("title", "输入")
-    prompt = params.get("prompt", "请输入:")
-    default = params.get("default", "")
-    save_to = params.get("save_to")
-    config_name = params.get("config_name")
-    config_note = params.get("config_note", "")
-    use_cache = params.get("use_cache", True)
-    force_refresh = params.get("force_refresh", False)
-    
-    from tkinter import simpledialog
-    
-    value = None
-    from_cache = False
-    
-    # 1. 检查环境变量（用于测试模式）
-    if config_name:
-        env_value = os.environ.get(f"MOCK_INPUT_{config_name.upper()}")
-        if env_value:
-            value = env_value
-    
-    # 2. 检查动态配置缓存
-    if value is None and config_name and use_cache and not force_refresh:
-        config_mgr = get_config_manager()
-        cached_value = config_mgr.get_config_value(config_name)
-        
-        if cached_value is not None:
-            value = cached_value
-            from_cache = True
-            logger.info(f"使用缓存配置 [{config_name}]: {value}")
-    
-    # 3. 如果没有获取到值，弹出输入对话框
-    if value is None:
-        root = Tk()
-        root.withdraw()
-        root.attributes('-topmost', True)
-        
-        try:
-            value = simpledialog.askstring(title, prompt, initialvalue=default)
-        finally:
-            root.destroy()
-    
-    # 4. 如果用户取消了输入，抛出异常终止 pipeline
-    if value is None:
-        raise UserCancelledError(f"用户取消了输入: {title}")
-    
-    # 5. 保存到动态配置缓存
-    if config_name and not from_cache:
-        config_mgr = get_config_manager()
-        config_mgr.save_config(config_name, value, config_note)
-        logger.info(f"保存配置 [{config_name}]: {value}")
-    
-    # 6. 保存到 ctx
-    if save_to:
-        parts = save_to.split('.')
-        current = ctx
-        for part in parts[:-1]:
-            if part not in current:
-                current[part] = {}
-            current = current[part]
-        current[parts[-1]] = value
-    
-    # 保持数据流不变，返回当前结果
-    return ctx.get("last_result")
+    return ctx.get("last_result") if "last_result" in ctx else None
 
 
 @op("clear_dynamic_config", category="elt", description="清除动态配置缓存")
 def op_clear_dynamic_config(ctx, params):
-    """清除动态配置缓存
-    
-    参数:
-        config_name: 要清除的配置名称，如果不指定则清除所有配置
-        
-    返回:
-        返回当前数据流
-    """
+    """清除动态配置缓存"""
     config_name = params.get("config_name")
-    
     config_mgr = get_config_manager()
     
     if config_name:
@@ -601,19 +444,11 @@ def op_clear_dynamic_config(ctx, params):
 
 @op("list_dynamic_configs", category="elt", description="列出所有动态配置")
 def op_list_dynamic_configs(ctx, params):
-    """列出所有动态配置
-    
-    参数:
-        无
-        
-    返回:
-        包含配置列表的 DataFrame
-    """
+    """列出所有动态配置"""
     config_mgr = get_config_manager()
     configs = config_mgr.list_configs()
     
     if not configs:
-        # 返回空 DataFrame
         return pd.DataFrame(columns=['config_name', 'note', 'updated_at'])
     
     return pd.DataFrame(configs)
@@ -621,35 +456,21 @@ def op_list_dynamic_configs(ctx, params):
 
 @op("merge_excel_files", category="elt", description="合并多个 Excel 文件")
 def op_merge_excel_files(ctx, params) -> pd.DataFrame:
-    """合并多个 Excel 文件，自动去重标题
-    
-    参数:
-        source_step: 文件扫描结果的步骤ID（默认使用 last_result）
-        sheet: 工作表名称或索引，默认 0
-        header_row: 表头行号，默认 1
-        dedup_columns: 去重依据的列名列表，可选
-        
-    返回:
-        合并后的 DataFrame
-    """
-    # 获取文件列表
+    """合并多个 Excel 文件，自动去重标题"""
     source_step = params.get("source_step")
-    if source_step:
-        file_result = ctx.get("results", {}).get(source_step)
-    else:
-        file_result = ctx.get("last_result")
+    file_result = ctx.get("results", {}).get(source_step) if source_step else ctx.get("last_result")
     
     if not file_result or not isinstance(file_result, dict):
-        raise ValueError("没有可用的文件列表，请先执行 scan_directory 和 filter_files")
+        raise ValueError("没有可用的文件列表")
     
     items = file_result.get("items", {})
     base_path = file_result.get("base_path", "")
     
-    # 筛选 Excel 文件
-    excel_files = []
-    for name, info in items.items():
-        if info.get("type") == "file" and name.lower().endswith((".xlsx", ".xls")):
-            excel_files.append(os.path.join(base_path, name))
+    excel_files = [
+        os.path.join(base_path, name)
+        for name, info in items.items()
+        if info.get("type") == "file" and name.lower().endswith((".xlsx", ".xls"))
+    ]
     
     if not excel_files:
         logger.warning("没有找到 Excel 文件")
@@ -657,18 +478,13 @@ def op_merge_excel_files(ctx, params) -> pd.DataFrame:
     
     logger.info(f"找到 {len(excel_files)} 个 Excel 文件待合并")
     
-    # 读取并合并
     sheet = params.get("sheet", 0)
     header = params.get("header_row", 1) - 1
     
-    all_data = []
-    failed_files = []
-    empty_files = []
+    all_data, failed_files, empty_files = [], [], []
     
     for fp in excel_files:
         try:
-            # 首先检查文件是否损坏（尝试打开）
-            import zipfile
             if fp.lower().endswith('.xlsx'):
                 try:
                     with zipfile.ZipFile(fp, 'r') as z:
@@ -680,47 +496,28 @@ def op_merge_excel_files(ctx, params) -> pd.DataFrame:
             
             df = pd.read_excel(fp, sheet_name=sheet, header=header)
             
-            # 检查是否为空（无数据行）
             if len(df) == 0:
-                logger.warning(f"文件为空（无数据行）: {os.path.basename(fp)}")
+                logger.warning(f"文件为空: {os.path.basename(fp)}")
                 empty_files.append(fp)
                 continue
             
-            # 检查是否缺少关键列
-            required_cols = params.get("required_columns", [])
-            missing_cols = [col for col in required_cols if col not in df.columns]
-            if missing_cols:
-                logger.warning(f"文件缺少关键列 {missing_cols}: {os.path.basename(fp)}")
-                # 继续处理，不跳过
-            
-            df["_source_file"] = os.path.basename(fp)  # 添加来源标记
+            df["_source_file"] = os.path.basename(fp)
             all_data.append(df)
-            logger.info(f"已读取: {os.path.basename(fp)} ({len(df)} 行, {len(df.columns)} 列)")
+            logger.info(f"已读取: {os.path.basename(fp)} ({len(df)} 行)")
             
         except Exception as e:
-            logger.error(f"读取文件失败 {os.path.basename(fp)}: {e}")
+            import traceback
+            error_detail = f"{type(e).__name__}: {e}\n{traceback.format_exc()}"
+            logger.error(f"读取文件失败 {os.path.basename(fp)}: {error_detail}")
             failed_files.append((fp, str(e)))
     
-    # 统计结果
-    if failed_files:
-        logger.warning(f"读取失败文件: {len(failed_files)} 个")
-    if empty_files:
-        logger.warning(f"空文件: {len(empty_files)} 个")
-    
     if not all_data:
-        if failed_files and empty_files:
-            raise ValueError(f"没有成功读取任何 Excel 文件。失败: {len(failed_files)} 个, 空文件: {len(empty_files)} 个")
-        elif failed_files:
-            raise ValueError(f"所有 Excel 文件读取失败，共 {len(failed_files)} 个")
-        else:
-            raise ValueError("所有 Excel 文件都为空（无数据行）")
+        raise ValueError(f"没有成功读取任何 Excel 文件。失败: {len(failed_files)} 个, 空文件: {len(empty_files)} 个")
     
-    # 合并数据
     logger.info(f"开始合并 {len(all_data)} 个文件的数据...")
     merged = pd.concat(all_data, ignore_index=True)
     logger.info(f"合并完成: 共 {len(merged)} 行, {len(merged.columns)} 列")
     
-    # 去重（如果指定了列）
     dedup_cols = params.get("dedup_columns")
     if dedup_cols and all(col in merged.columns for col in dedup_cols):
         before_count = len(merged)
@@ -729,18 +526,145 @@ def op_merge_excel_files(ctx, params) -> pd.DataFrame:
         if dropped > 0:
             logger.info(f"去重完成: 移除 {dropped} 行重复数据")
     
-    # 移除辅助列
     if "_source_file" not in params.get("keep_columns", []):
         merged = merged.drop(columns=["_source_file"])
     
-    logger.info(f"合并完成: 共 {len(merged)} 行, {len(merged.columns)} 列")
     return merged
 
 
-def run(config_path=None):
-    """模块测试入口"""
-    PipelineEngine.main(OpRegistry.get_op_map(), cfg=config_path, init_ctx=lambda: {"base_dir": DATA_DIR})
+@op("merge_csv_by_manager", category="elt", description="按科长合并下属用户的CSV文件")
+def op_merge_csv_by_manager(ctx, params) -> pd.DataFrame:
+    """按科长合并下属用户的CSV文件
+    
+    参数:
+        source_dir: 源目录（包含用户CSV文件的文件夹，如 PO 或 PR）
+        mapping_file: 映射文件路径（Excel文件）
+        mapping_sheet: 映射sheet名称（如"用户"）
+        user_col: 用户列名（如"用户"）
+        manager_col: 科长列名（如"科长"）
+        output_dir: 输出目录（如果不指定则使用 source_dir）
+        encoding: 文件编码（默认 gbk）
+    """
+    source_dir = resolve_path(params.get("source_dir", ""), ctx)
+    mapping_file = resolve_path(params.get("mapping_file", ""), ctx)
+    mapping_sheet = params.get("mapping_sheet", "用户")
+    user_col = params.get("user_col", "用户")
+    manager_col = params.get("manager_col", "科长")
+    output_dir = resolve_path(params.get("output_dir", source_dir), ctx)
+    encoding = params.get("encoding", "gbk")
+    
+    # 1. 读取映射文件，建立用户->科长的映射
+    logger.info(f"读取映射文件: {mapping_file}, sheet: {mapping_sheet}")
+    try:
+        mapping_df = pd.read_excel(mapping_file, sheet_name=mapping_sheet)
+    except Exception as e:
+        raise ValueError(f"读取映射文件失败: {e}")
+    
+    # 检查必要的列是否存在
+    if user_col not in mapping_df.columns or manager_col not in mapping_df.columns:
+        available_cols = list(mapping_df.columns)
+        raise ValueError(f"映射文件缺少必要列。需要: '{user_col}', '{manager_col}'，可用列: {available_cols}")
+    
+    # 建立用户->科长的映射（只包含有科长的记录）
+    user_to_manager = {}
+    for _, row in mapping_df.iterrows():
+        user = str(row[user_col]).strip() if pd.notna(row[user_col]) else ""
+        manager = str(row[manager_col]).strip() if pd.notna(row[manager_col]) else ""
+        # 只处理有效的用户-科长关系（科长不为空且不等于"/"）
+        if user and manager and manager != "/":
+            user_to_manager[user] = manager
+    
+    logger.info(f"建立 {len(user_to_manager)} 个用户-科长映射关系")
+    
+    # 2. 扫描源目录中的CSV文件
+    if not os.path.exists(source_dir):
+        raise FileNotFoundError(f"源目录不存在: {source_dir}")
+    
+    csv_files = [
+        f for f in os.listdir(source_dir)
+        if f.lower().endswith('.csv') and os.path.isfile(os.path.join(source_dir, f))
+    ]
+    
+    if not csv_files:
+        logger.warning(f"源目录中没有CSV文件: {source_dir}")
+        return pd.DataFrame()
+    
+    logger.info(f"找到 {len(csv_files)} 个CSV文件")
+    
+    # 3. 按科长分组，收集每个科长的下属用户文件
+    # manager_files: {科长: [用户文件名列表]}
+    manager_files = {}
+    for csv_file in csv_files:
+        # 去掉.csv后缀获取用户名
+        user_name = csv_file[:-4]  # 移除 ".csv"
+        if user_name in user_to_manager:
+            manager = user_to_manager[user_name]
+            if manager not in manager_files:
+                manager_files[manager] = []
+            manager_files[manager].append(csv_file)
+        else:
+            # 用户没有对应的科长，跳过
+            logger.debug(f"用户 '{user_name}' 没有对应的科长映射，跳过")
+    
+    if not manager_files:
+        logger.warning("没有找到可合并的文件（没有用户匹配到科长）")
+        return pd.DataFrame()
+    
+    logger.info(f"找到 {len(manager_files)} 个科长需要合并文件")
+    
+    # 4. 为每个科长合并文件
+    all_merged_data = []
+    os.makedirs(output_dir, exist_ok=True)
+    
+    for manager, files in manager_files.items():
+        logger.info(f"合并科长 '{manager}' 的文件: {files}")
+        
+        manager_data = []
+        for file_name in files:
+            file_path = os.path.join(source_dir, file_name)
+            try:
+                # 尝试不同编码读取
+                for enc in [encoding, 'utf-8', 'utf-8-sig', 'gb18030']:
+                    try:
+                        df = pd.read_csv(file_path, encoding=enc)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                else:
+                    df = pd.read_csv(file_path, encoding='latin-1')
+                
+                # 添加来源标记
+                df["_source_user"] = file_name[:-4]  # 去掉.csv
+                manager_data.append(df)
+                logger.info(f"  已读取: {file_name} ({len(df)} 行)")
+                
+            except Exception as e:
+                logger.error(f"  读取文件失败 {file_name}: {e}")
+        
+        if manager_data:
+            # 合并该科长的所有数据
+            merged_df = pd.concat(manager_data, ignore_index=True)
+            
+            # 保存到文件
+            output_file = os.path.join(output_dir, f"{manager}.csv")
+            try:
+                merged_df.to_csv(output_file, encoding=encoding, index=False)
+                logger.info(f"  已保存: {output_file} ({len(merged_df)} 行)")
+            except UnicodeEncodeError:
+                merged_df.to_csv(output_file, encoding='utf-8-sig', index=False)
+                logger.info(f"  已保存(utf-8-sig): {output_file} ({len(merged_df)} 行)")
+            
+            # 添加来源标记后收集
+            merged_df["_manager"] = manager
+            all_merged_data.append(merged_df)
+    
+    if all_merged_data:
+        result = pd.concat(all_merged_data, ignore_index=True)
+        logger.info(f"科长汇总完成: 共 {len(manager_files)} 个科长, {len(result)} 行数据")
+        return result
+    else:
+        logger.warning("没有成功合并任何数据")
+        return pd.DataFrame()
 
 
-if __name__ == '__main__':
-    run()
+

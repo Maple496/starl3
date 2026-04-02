@@ -6,10 +6,9 @@ import time
 import traceback
 from typing import Any, Callable, Dict, List, Optional
 
-from .data_context import DataContext
+from .context import DataContext
 from .logger import Logger, StepContext
 from .safe_eval import eval_condition, SafeEvalError
-from .context import PipelineContext
 
 
 class PipelineError(Exception):
@@ -39,12 +38,12 @@ class PipelineEngine:
         done_fn: Optional[Callable] = None,
         logger: Optional[Logger] = None
     ):
-        self.m = ops
-        self.i = init_ctx
-        self.e = eval_vars_fn
-        self.r = result_handler
-        self.d = done_fn
-        self.l = logger or Logger()
+        self.ops = ops
+        self.init_ctx = init_ctx
+        self.eval_vars_fn = eval_vars_fn
+        self.result_handler = result_handler
+        self.done_fn = done_fn
+        self.logger = logger or Logger()
         self._name = ""
         self._t0 = 0
     
@@ -77,7 +76,7 @@ class PipelineEngine:
                 
                 steps.append(step)
             
-            # 按 step_order 排序
+            # 按 step_order 排序（提取数字部分）
             def sort_key(x):
                 order = str(x.get('step_order', '0'))
                 match = re.match(r'\d+', order)
@@ -117,7 +116,7 @@ class PipelineEngine:
                 i += 1
                 continue
             
-            with StepContext(self.l, step_id, op_type):
+            with StepContext(self.logger, step_id, op_type):
                 try:
                     if op_type in builtin_ops:
                         result = builtin_ops[op_type](ctx, params, steps, i)
@@ -130,10 +129,10 @@ class PipelineEngine:
                     executed_steps.append(step_id)
                     
                 except UserCancelledError:
-                    self.l.info("用户取消了操作，Pipeline 终止")
+                    self.logger.info("用户取消了操作，Pipeline 终止")
                     raise
                 except Exception as e:
-                    self.l.step_error(step_id, e, {"op_type": op_type, "params": params})
+                    self.logger.step_error(step_id, e, {"op_type": op_type, "params": params})
                     if isinstance(e, PipelineError):
                         raise
                     raise PipelineError(f"步骤 '{step_id}' 执行失败: {e}", step_id=step_id, original_error=e)
@@ -147,60 +146,43 @@ class PipelineEngine:
         step_id = step.get("step_id", "")
         op_type = step.get("op_type", "")
         
-        # 统一上下文访问
-        def get_ctx_value(key, default=None):
-            if isinstance(ctx, PipelineContext):
-                return getattr(ctx, key, default) if hasattr(ctx, key) else ctx.get(key, default)
+        # 统一上下文访问辅助函数
+        def get_ctx(key, default=None):
             return ctx.get(key, default)
         
-        def set_ctx_value(key, value):
-            if isinstance(ctx, PipelineContext):
-                if hasattr(ctx, key):
-                    setattr(ctx, key, value)
-                else:
-                    ctx.set(key, value)
-            else:
-                ctx[key] = value
+        def set_ctx(key, value):
+            ctx[key] = value
         
         # 数据上下文管理
-        last_result = get_ctx_value("last_result")
-        if last_result is not None:
-            data_ctx = DataContext.from_result(last_result, source="pipeline", base_dir=base_dir)
-        else:
-            data_ctx = DataContext(base_dir)
+        last_result = get_ctx("last_result")
+        data_ctx = DataContext.from_result(last_result, source="pipeline", base_dir=base_dir) if last_result is not None else DataContext(base_dir)
         
         # 保留上一步的文件上下文
-        prev_ctx = get_ctx_value("_data_context")
+        prev_ctx = get_ctx("_data_context")
         if prev_ctx and hasattr(prev_ctx, 'files') and prev_ctx.files and not data_ctx.has_files():
             data_ctx.files = prev_ctx.files.copy()
         
-        set_ctx_value("_data_context", data_ctx)
+        set_ctx("_data_context", data_ctx)
         
         # 自动注入文件路径
         if data_ctx.has_files() and not step.get("_has_params", False):
             if len(data_ctx.files) == 1:
                 params["file_path"] = data_ctx.files[0]["abs_path"]
             elif len(data_ctx.files) > 0:
-                if op_type == "add_attachment":
-                    params["file_path"] = [f["abs_path"] for f in data_ctx.files]
-                else:
-                    params["attachments"] = [f["abs_path"] for f in data_ctx.files]
+                params["attachments"] = [f["abs_path"] for f in data_ctx.files]
         
-        if op_type not in self.m:
+        if op_type not in self.ops:
             raise PipelineError(f"未知的操作类型: '{op_type}'", step_id=step_id)
         
-        self.l.debug(f"执行操作: {op_type}")
-        result = self.m[op_type](ctx, params)
+        self.logger.debug(f"执行操作: {op_type}")
+        result = self.ops[op_type](ctx, params)
         result = self._process_result(result, base_dir)
         
-        if self.r:
-            self.r(ctx, step_id, result, self.l)
+        if self.result_handler:
+            self.result_handler(ctx, step_id, result, self.logger)
         else:
-            if isinstance(ctx, PipelineContext):
-                ctx.set_result(step_id, result)
-            else:
-                ctx.setdefault("results", {})[step_id] = result
-                ctx["last_result"] = result
+            ctx.setdefault("results", {})[step_id] = result
+            ctx["last_result"] = result
         
         return index + 1
     
@@ -228,7 +210,7 @@ class PipelineEngine:
         
         for i, step in enumerate(steps):
             if step.get("step_id") == target:
-                self.l.info(f"跳转到步骤: {target}")
+                self.logger.info(f"跳转到步骤: {target}")
                 return i
         
         raise PipelineError(f"goto 目标步骤不存在: {target}")
@@ -242,7 +224,7 @@ class PipelineEngine:
         if not check_expr:
             raise PipelineError("condition 操作需要 'check' 参数")
         
-        variables = self.e(ctx) if self.e else ctx.copy()
+        variables = self.eval_vars_fn(ctx) if self.eval_vars_fn else ctx.copy()
         
         try:
             result = eval_condition(check_expr, variables)
@@ -254,7 +236,7 @@ class PipelineEngine:
         if target:
             for i, step in enumerate(steps):
                 if step.get("step_id") == target:
-                    self.l.info(f"条件 {result}，跳转到: {target}")
+                    self.logger.info(f"条件 {result}，跳转到: {target}")
                     return i
             raise PipelineError(f"condition 目标步骤不存在: {target}")
         
@@ -272,7 +254,7 @@ class PipelineEngine:
         
         result = ctx.get("results", {}).get(step_id)
         if result is None:
-            self.l.warning(f"步骤 '{step_id}' 的结果不存在")
+            self.logger.warning(f"步骤 '{step_id}' 的结果不存在")
         
         ctx["last_result"] = result
         return index + 1
@@ -281,7 +263,6 @@ class PipelineEngine:
         """清空上下文和内存"""
         import gc
         
-        old_result = ctx.get("last_result")
         ctx["last_result"] = None
         
         if params.get("clear_results", False):
@@ -291,7 +272,7 @@ class PipelineEngine:
             for step_id in removed:
                 del results[step_id]
             if removed:
-                self.l.info(f"已清空 {len(removed)} 个历史步骤结果")
+                self.logger.info(f"已清空 {len(removed)} 个历史步骤结果")
         
         if "_data_context" in ctx:
             del ctx["_data_context"]
@@ -299,19 +280,19 @@ class PipelineEngine:
         if params.get("gc", True):
             gc.collect()
         
-        self.l.info("上下文已清空")
+        self.logger.info("上下文已清空")
         return index + 1
     
     def execute(self, config_path: str) -> Dict[str, Any]:
         """执行 pipeline 配置文件"""
         self._name = os.path.splitext(os.path.basename(config_path))[0]
         self._t0 = time.time()
-        self.l.set_pipeline(self._name)
+        self.logger.set_pipeline(self._name)
         
         try:
             steps = self.parse_pipeline(os.path.abspath(config_path))
             
-            ctx = self.i() if self.i else {}
+            ctx = self.init_ctx() if self.init_ctx else {}
             ctx.setdefault("base_dir", os.path.dirname(config_path))
             ctx.setdefault("last_result", None)
             ctx.setdefault("results", {})
@@ -319,24 +300,24 @@ class PipelineEngine:
             result = self.run(steps, ctx)
             
             elapsed = time.time() - self._t0
-            self.l.info(f"总耗时: {elapsed:.3f}s")
+            self.logger.info(f"总耗时: {elapsed:.3f}s")
             
-            if self.d:
-                self.d(result, self.l)
+            if self.done_fn:
+                self.done_fn(result, self.logger)
             
             return result
             
         except UserCancelledError:
             elapsed = time.time() - self._t0
-            self.l.info(f"Pipeline 被用户取消，耗时: {elapsed:.3f}s")
+            self.logger.info(f"Pipeline 被用户取消，耗时: {elapsed:.3f}s")
             raise
         except PipelineError as e:
             elapsed = time.time() - self._t0
-            self.l.error(f"Pipeline 执行失败！耗时: {elapsed:.3f}s", extra={"error": str(e), "step_id": e.step_id})
+            self.logger.error(f"Pipeline 执行失败！耗时: {elapsed:.3f}s", extra={"error": str(e), "step_id": e.step_id})
             raise
         except Exception as e:
             elapsed = time.time() - self._t0
-            self.l.error(f"Pipeline 执行发生未预期错误！耗时: {elapsed:.3f}s", extra={"error": str(e)})
+            self.logger.error(f"Pipeline 执行发生未预期错误！耗时: {elapsed:.3f}s", extra={"error": str(e)})
             raise PipelineError(f"未预期的错误: {e}", original_error=e)
     
     @classmethod
