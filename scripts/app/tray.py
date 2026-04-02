@@ -69,7 +69,7 @@ class StarL3TrayApp:
             
             if file_path:
                 # 启动任务
-                task_id = task_manager.start_task(file_path)
+                task_id, _ = task_manager.start_task(file_path)
                 print(f"[INFO] 已启动任务: {task_id}")
                 
                 # 打开管理界面
@@ -90,6 +90,13 @@ class StarL3TrayApp:
     
     def on_view_tasks(self, icon, item):
         """查看任务管理界面"""
+        self.open_task_manager()
+    
+    def open_task_manager(self):
+        """
+        打开任务管理界面。
+        可被 IPC 服务器调用以响应其他实例的激活请求。
+        """
         if self.web_port:
             webbrowser.open(f"http://127.0.0.1:{self.web_port}")
     
@@ -145,14 +152,26 @@ class StarL3TrayApp:
             )
         )
     
-    def run(self):
-        """运行系统托盘应用"""
-        # 启动 Web 服务器
-        self.web_thread, self.web_port = run_web_server(
-            host='127.0.0.1',
-            port=0,  # 自动选择端口
-            open_browser=False
-        )
+    def run(self, web_thread=None, web_port=None, skip_web_server=False):
+        """
+        运行系统托盘应用
+        
+        Args:
+            web_thread: 外部传入的 Web 服务器线程（可选）
+            web_port: 外部传入的 Web 服务器端口（可选）
+            skip_web_server: 如果为 True，跳过启动 Web 服务器（外部已启动）
+        """
+        if skip_web_server:
+            # 使用外部传入的 Web 服务器
+            self.web_thread = web_thread
+            self.web_port = web_port
+        else:
+            # 启动 Web 服务器
+            self.web_thread, self.web_port = run_web_server(
+                host='127.0.0.1',
+                port=0,  # 自动选择端口
+                open_browser=False
+            )
         
         print(f"[INFO] StarL3 系统托盘程序已启动")
         print(f"[INFO] 管理界面: http://127.0.0.1:{self.web_port}")
