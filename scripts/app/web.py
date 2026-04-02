@@ -109,6 +109,33 @@ def create_app() -> Flask:
         success = task_manager.remove_task(task_id)
         return jsonify({"success": success, "message": "已删除" if success else "删除失败"})
     
+    @app.route('/api/tasks/<task_id>/logs', methods=['GET'])
+    def get_task_logs(task_id):
+        """获取任务日志"""
+        task = task_manager.get_task(task_id)
+        if not task:
+            return jsonify({"success": False, "error": "任务不存在"}), 404
+        
+        logs = task.get_logs()
+        return jsonify({"success": True, "data": {"logs": logs}})
+    
+    @app.route('/api/tasks/<task_id>/rerun', methods=['POST'])
+    def rerun_task(task_id):
+        """重新运行任务"""
+        task = task_manager.get_task(task_id)
+        if not task:
+            return jsonify({"success": False, "error": "任务不存在"}), 404
+        
+        config_path = task.config_path
+        if not os.path.exists(config_path):
+            return jsonify({"success": False, "error": "配置文件不存在"}), 400
+        
+        try:
+            new_task_id = task_manager.start_task(config_path)
+            return jsonify({"success": True, "data": {"task_id": new_task_id}})
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 500
+    
     # ========== Pipeline 编辑器页面 ==========
     
     @app.route('/editor')

@@ -41,8 +41,23 @@ class Task:
     _stop_event: threading.Event = field(default_factory=threading.Event, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     
+    # 日志捕获
+    _logs: list = field(default_factory=list, repr=False)
+    _log_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    
     def __post_init__(self):
         self._pause_event.set()  # 默认不暂停
+    
+    def add_log(self, message: str):
+        """添加日志行"""
+        with self._log_lock:
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self._logs.append(f"[{timestamp}] {message}")
+    
+    def get_logs(self) -> list:
+        """获取所有日志"""
+        with self._log_lock:
+            return self._logs.copy()
     
     def to_dict(self) -> dict:
         """转换为字典（用于JSON序列化）"""
@@ -261,6 +276,9 @@ class InterruptiblePipelineEngine:
         base_dir = ctx.get("base_dir", "")
         executed_steps = []
         
+        self.task.add_log(f"[INFO] 开始执行 Pipeline: {engine._name}")
+        self.task.add_log(f"[INFO] 共 {len(steps)} 个步骤")
+        
         while 0 <= i < len(steps):
             # 检查控制信号
             self.check_control()
@@ -283,15 +301,19 @@ class InterruptiblePipelineEngine:
             
             # 检查是否启用
             if enabled != "Y":
+                self.task.add_log(f"[SKIP] 步骤 {step_id} 已禁用，跳过")
                 i += 1
                 continue
             
             # 使用步骤上下文管理器
             with StepContext(engine.logger, step_id, op_type):
                 try:
+                    self.task.add_log(f"[INFO] 执行步骤 {step_id}: {op_type}")
+                    
                     if op_type in builtin_ops:
                         result = builtin_ops[op_type](ctx, params, steps, i)
                         if result == -1:  # end 操作
+                            self.task.add_log(f"[INFO] 遇到 end 操作，Pipeline 结束")
                             break
                         i = result
                     else:
@@ -299,12 +321,15 @@ class InterruptiblePipelineEngine:
                         i = engine._execute_user_op(ctx, step, params, base_dir, i)
                     
                     executed_steps.append(step_id)
+                    self.task.add_log(f"[INFO] 步骤 {step_id} 完成")
                     
                 except UserCancelledError:
-                    engine.logger.info("用户取消了操作，Pipeline 终止")
+                    self.task.add_log("[WARN] 用户取消了操作，Pipeline 终止")
                     raise
                     
                 except Exception as e:
+                    error_msg = f"步骤 '{step_id}' 执行失败: {e}"
+                    self.task.add_log(f"[ERROR] {error_msg}")
                     engine.logger.step_error(step_id, e, {
                         "op_type": op_type,
                         "params": params
@@ -314,11 +339,12 @@ class InterruptiblePipelineEngine:
                         raise
                     
                     raise PipelineError(
-                        f"步骤 '{step_id}' 执行失败: {e}",
+                        error_msg,
                         step_id=step_id,
                         original_error=e
                     )
         
+        self.task.add_log(f"[INFO] Pipeline 执行完成，成功执行 {len(executed_steps)} 个步骤")
         ctx["_executed_steps"] = executed_steps
         ctx["_total_steps"] = len(steps)
         return ctx

@@ -1310,8 +1310,31 @@ window.onload = () => {
     
     initEventDelegation();
     initReactiveBindings();
-    loadConfig();
-    setInterval(() => fetch('/api/heartbeat', { method: 'POST' }).catch(() => {}), 2000);
+    
+    // 检查 URL 参数，如果有 config 参数则加载指定配置
+    const urlParams = new URLSearchParams(window.location.search);
+    const configParam = urlParams.get('config');
+    if (configParam) {
+        // 从 URL 参数加载配置
+        state.currentConfigPath = configParam;
+        document.getElementById('configPathLabel').textContent = configParam;
+        api('/editor/api/reload', { path: configParam }).then(j => {
+            if (!j.error) {
+                state.init(formatRows(j.data.rows));
+                scroller?.setTotalRows(state.rows.length);
+                renderTable();
+                renderSidebar();
+                showToast('已加载配置: ' + configParam, 'success');
+            } else {
+                showToast(j.error, 'error');
+                loadConfig(); // 失败则加载默认配置
+            }
+        });
+    } else {
+        loadConfig();
+    }
+    
+    setInterval(() => fetch('/editor/api/heartbeat', { method: 'POST' }).catch(() => {}), 2000);
 };
 </script></body></html>
 

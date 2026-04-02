@@ -128,6 +128,64 @@ async function deleteTask(taskId) {
     }
 }
 
+// 查看任务日志
+async function viewTaskLogs(taskId) {
+    const result = await apiRequest(`/api/tasks/${taskId}/logs`);
+    
+    if (result.success) {
+        const logs = result.data.logs;
+        const logContent = logs.length > 0 ? logs.join('\n') : '暂无日志';
+        
+        // 创建日志模态框
+        const modal = document.createElement('div');
+        modal.className = 'log-modal';
+        modal.innerHTML = `
+            <div class="log-modal-content">
+                <div class="log-modal-header">
+                    <h3>📋 运行日志</h3>
+                    <button class="btn-close" onclick="this.closest('.log-modal').remove()">✕</button>
+                </div>
+                <div class="log-modal-body">
+                    <pre class="log-content">${escapeHtml(logContent)}</pre>
+                </div>
+                <div class="log-modal-footer">
+                    <button class="btn btn-primary" onclick="this.closest('.log-modal').remove()">关闭</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } else {
+        showToast(result.error || '获取日志失败', 'error');
+    }
+}
+
+// 重新运行任务
+async function rerunTask(taskId) {
+    const result = await apiRequest(`/api/tasks/${taskId}/rerun`, {
+        method: 'POST'
+    });
+    
+    if (result.success) {
+        showToast(`任务已重新启动: ${result.data.task_id}`);
+        refreshTasks();
+    } else {
+        showToast(result.error || '重新运行失败', 'error');
+    }
+}
+
+// 编辑任务配置
+function editTaskConfig(configPath) {
+    // 打开编辑器页面并传入配置路径
+    window.open(`/editor?config=${encodeURIComponent(configPath)}`, '_blank');
+}
+
+// HTML 转义函数
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // 渲染任务列表
 function renderTasks(tasks) {
     const container = document.getElementById('taskList');
@@ -189,6 +247,9 @@ function renderTasks(tasks) {
                 </div>
                 
                 <div class="task-actions">
+                    <button class="btn btn-info" onclick="viewTaskLogs('${task.id}')">📋 日志</button>
+                    <button class="btn btn-primary" onclick="rerunTask('${task.id}')">🔄 重运行</button>
+                    <button class="btn btn-success" onclick="editTaskConfig('${task.config_path}')">✏️ 编辑</button>
                     ${canPause ? `<button class="btn btn-warning" onclick="pauseTask('${task.id}')">暂停</button>` : ''}
                     ${canResume ? `<button class="btn btn-success" onclick="resumeTask('${task.id}')">恢复</button>` : ''}
                     ${canStop ? `<button class="btn btn-danger" onclick="stopTask('${task.id}')">停止</button>` : ''}
